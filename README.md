@@ -10,3 +10,17 @@ Pre-alpha first version MVP frfr ong
 -- if get correct sequentially, continue to have combo
 -- combo multiplies score
 - once round is over, present leaderboard
+
+websocket spec, everything goes through root:
+
+Client -> Server:
+- `{command: create_room, data: {}}`
+- `{command: edit_room, data: {game_time: ''}}`
+- `{command: join_room, data: {room_id: ''}}`
+- `{command: start_game, data: {}}`
+- `{command: submit_guess, data: {guess: ''}}`
+
+Server -> Client:
+- `{command: emote, data: {emote: {name:, id:}}}`
+- `{command: guess_response, data: {matched_chars: '??x??'}}`
+- `{command: game_over, data: {emote: {name:, id:}}}`
