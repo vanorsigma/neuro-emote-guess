@@ -24,3 +24,6 @@ Server -> Client:
 - `{command: emote, data: {emote: {name:, id:}}}`
 - `{command: guess_response, data: {matched_chars: '??x??'}}`
 - `{command: game_over, data: {emote: {name:, id:}}}`
+
+Todo:
+- Need to send "current user ID" as well
