@@ -60,6 +60,8 @@ async fn handle_upgrade(app_data: AppDataSync, ws: WebSocket) {
             }
         };
 
+        tracing::debug!("msg is {:#?}", msg);
+
         let request = match serde_json::from_str(msg.to_str().expect("can convert to string")) {
             Ok(r) => r,
             Err(e) => {

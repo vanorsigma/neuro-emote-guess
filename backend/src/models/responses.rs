@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::data::{Emote, RoomID, User};
+use crate::{data::{RoomID, User}, seventv::FinalEmote};
 
 #[derive(Serialize, Debug)]
 pub struct NewUserData {
@@ -15,7 +15,7 @@ pub struct RoomCreateData {
 
 #[derive(Serialize, Debug)]
 pub struct EmoteData {
-    pub emote: Emote
+    pub emote: FinalEmote
 }
 
 #[derive(Serialize, Debug)]
@@ -25,7 +25,7 @@ pub struct GuessData {
 
 #[derive(Serialize, Debug)]
 pub struct GameOverData {
-    pub emote: Emote
+    pub emote: FinalEmote
 }
 
 #[derive(Serialize, Debug)]

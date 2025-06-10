@@ -29,7 +29,7 @@
 
 <h1 class="text-3xl font-bold underline">Room ID: {room_id}</h1>
 <div class="flex flex-col items-center gap-2">
-  <img class="max-w-lg flex-none" src={emote.link} alt="pepega just look at the emote" />
+  <img class="max-w-lg flex-none" src={emote.url} alt="pepega just look at the emote" />
   <div class="flex flex-row gap-3">
     {#each emote.name as chr, index (index)}
       <Box letter={chr} state={states[index]} />

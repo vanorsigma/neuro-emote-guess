@@ -1,0 +1,15 @@
+query Emotes($id: String!) {
+  emoteSet(id: $id) {
+    emotes {
+      name
+      data {
+        host {
+          url
+          files {
+            name
+          }
+        }
+      }
+    }
+  }
+}

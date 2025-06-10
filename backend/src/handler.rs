@@ -5,29 +5,31 @@ use std::{
 };
 
 use backend::{
-    data::{AppData, AppDataSync, Emote, GameState, RoomID, User},
+    data::{AppData, AppDataSync, GameState, RoomID, User, UserData},
     models::{
-        requests::{
-            EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData,
-        },
-        responses::{EmoteData, NewUserData, Response},
+        requests::{EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData},
+        responses::{EmoteData, NewUserData, Response, RoomCreateData},
     },
+    seventv::{FinalEmote, get_emote_for_emote_set_id},
 };
 use futures_util::{SinkExt, stream::SplitSink};
-use rand::Rng;
+use rand::{Rng, SeedableRng, seq::IndexedRandom};
+use rand_chacha::ChaCha8Rng;
 use uuid::{Uuid, uuid};
 use warp::filters::ws::{Message, WebSocket, Ws};
 
+// TODO: temporary constant
+const EMOTE_SET_ID: &str = "01J452JCVG0000352W25T9VEND";
 const DEFAULT_DURATION_SEC: u64 = 30;
 
 /// Utilities
 
 pub async fn is_user_exists(app_data: &AppData, user: User) -> bool {
-    app_data.users.contains_key(&user)
+    app_data.users.read().await.contains_key(&user)
 }
 
-pub async fn reply_to_user(app_data: &mut AppData, user: User, message: Message) {
-    match app_data.users.get_mut(&user) {
+pub async fn reply_to_user(app_data: &AppData, user: User, message: Message) {
+    match app_data.users.write().await.get_mut(&user) {
         Some(m) => m.ws.send(message).await.unwrap(),
         None => return,
     };
@@ -39,12 +41,12 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
     let uuid = Uuid::new_v4();
     let seed: u64 = rand::random();
 
-    if !is_user_exists(app_data.read().await.deref(), user_id.clone()).await {
+    if !is_user_exists(&app_data, user_id.clone()).await {
         return;
     }
 
-    let mut app_data = app_data.write().await;
-    app_data.deref_mut().game_states.insert(
+    let mut game_states = app_data.game_states.write().await;
+    game_states.insert(
         RoomID(uuid.to_string()),
         GameState::new(
             RoomID(uuid.to_string()),
@@ -56,20 +58,25 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
 
     // TODO: fix this
     reply_to_user(
-        &mut app_data,
+        &app_data,
         user_id,
-        Message::text(format!("{},{}", uuid, seed)),
+        Message::text(
+            serde_json::to_string(&Response::RoomCreate(RoomCreateData {
+                room_id: RoomID(uuid.to_string()),
+                seed,
+            }))
+            .unwrap(),
+        ),
     )
     .await
 }
 
 pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRoomData) {
-    if !is_user_exists(app_data.read().await.deref(), user_id.clone()).await {
+    if !is_user_exists(&app_data, user_id.clone()).await {
         return;
     }
 
-    let mut app_data = app_data.write().await;
-    let game_states = &mut app_data.game_states;
+    let mut game_states = app_data.game_states.write().await;
     let game_state = match game_states.get_mut(&data.room_id) {
         Some(gs) => gs,
         None => {
@@ -79,32 +86,41 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
     };
 
     game_state.duration = data.game_duration;
-    reply_to_user(&mut app_data, user_id, Message::text("OK")).await
+    reply_to_user(&app_data, user_id, Message::text("OK")).await
 }
 
 pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRoomData) {
-    if !is_user_exists(app_data.read().await.deref(), user_id.clone()).await {
+    if !is_user_exists(&app_data, user_id.clone()).await {
         return;
     }
 
-    let mut app_data = app_data.write().await;
-    let game_state = match app_data.game_states.get_mut(&data.room_id) {
+    let mut game_states = app_data.game_states.write().await;
+    let game_state = match game_states.get_mut(&data.room_id) {
         Some(gs) => gs,
         None => return,
     };
 
-    game_state.user_map.insert(user_id.clone(), 0);
-    reply_to_user(&mut app_data, user_id, Message::text("ok")).await
+    game_state
+        .user_data
+        .insert(user_id.clone(), Default::default());
+    reply_to_user(&app_data, user_id, Message::text("ok")).await
 }
 
-pub async fn handle_start_game(app_data: AppDataSync, user_id: User, data: StartGameData) {
-    if !is_user_exists(app_data.read().await.deref(), user_id.clone()).await {
-        return;
+fn choose_random_emote(emote: &Vec<FinalEmote>, seed: u64, emote_index: u32) -> FinalEmote {
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
+
+    // "wastes" the random for up to emote_index times
+    for _ in 0..emote_index {
+        let _ = rng.random_bool(0.5);
     }
 
-    let mut app_data = app_data.write().await;
-    let game_state = match app_data.game_states.get(&data.room_id) {
-        Some(gs) => gs.clone(),
+    emote.choose(&mut rng).unwrap().clone()
+}
+
+async fn send_random_emote(app_data: &mut AppDataSync, user_id: User, room_id: RoomID) {
+    let mut game_states = app_data.game_states.write().await;
+    let game_state = match game_states.get_mut(&room_id) {
+        Some(gs) => gs,
         None => return,
     };
 
@@ -112,52 +128,69 @@ pub async fn handle_start_game(app_data: AppDataSync, user_id: User, data: Start
         return;
     }
 
-    let users = &mut app_data.users;
-    for user in game_state.user_map.keys() {
-        let data = match users.get_mut(user) {
+    let userdata_map = &mut app_data.users.write().await;
+    for user in game_state.user_data.keys().cloned().collect::<Vec<User>>() {
+        let data = match userdata_map.get_mut(&user) {
             Some(d) => d,
             None => continue,
         };
 
+        let game_user_data = match game_state.user_data.get_mut(&user) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        let emotes = get_emote_for_emote_set_id(EMOTE_SET_ID.to_string())
+            .await
+            .inspect_err(|e| tracing::error!("{}", e))
+            .unwrap();
+        let emote = choose_random_emote(&emotes, game_state.seed, game_user_data.emote);
+        game_user_data.emote += 1;
+
         let _ = data
             .ws
             .send(Message::text(
-                serde_json::to_string(&Response::Emote(EmoteData {
-                    emote: Emote {
-                        id: "placeholder".to_string(), // TODO
-                        name: "placeholder name".to_string(),
-                    },
-                }))
-                .unwrap(),
+                serde_json::to_string(&Response::Emote(EmoteData { emote })).unwrap(),
             ))
             .await;
     }
-
-    reply_to_user(&mut app_data, user_id, Message::text("OK")).await;
 }
 
-pub async fn handle_submit_guess(app_data: AppDataSync, user_id: User, data: SubmitGuessData) {
-    if !is_user_exists(app_data.read().await.deref(), user_id.clone()).await {
+pub async fn handle_start_game(mut app_data: AppDataSync, user_id: User, data: StartGameData) {
+    if !is_user_exists(&app_data, user_id.clone()).await {
         return;
     }
 
-    let mut app_data = app_data.write().await;
-    let mut game_states = &mut app_data.game_states;
-    let mut users = &mut app_data.users;
-    let game_state = match &mut app_data.game_states.get_mut(&data.room_id) {
+    send_random_emote(&mut app_data, user_id, data.room_id).await;
+    // reply_to_user(&app_data, user_id, Message::text("OK")).await;
+}
+
+pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data: SubmitGuessData) {
+    if !is_user_exists(&app_data, user_id.clone()).await {
+        return;
+    }
+
+    send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
+
+    let game_states = &mut app_data.game_states.write().await;
+    let game_state = match game_states.get_mut(&data.room_id) {
         Some(gs) => gs,
         None => return,
     };
 
-    todo!()
+    let mut user_data = match game_state.user_data.get(&user_id) {
+        Some(u) => u.clone(),
+        None => return,
+    };
+
+    user_data.score += 1; // TODO: as a test
 }
 
 pub async fn handle_create_user(
     app_data: AppDataSync,
     mut ws: SplitSink<WebSocket, Message>,
 ) -> User {
-    let mut app_data = app_data.write().await;
-    let users = &mut app_data.users;
+    let users = &mut app_data.users.write().await;
     let uuid = Uuid::new_v4();
 
     let user = User(uuid.to_string());
@@ -184,7 +217,6 @@ pub async fn handle_create_user(
 }
 
 pub async fn handle_delete_user(app_data: AppDataSync, user: User) {
-    let mut app_data = app_data.write().await;
-    let users = &mut app_data.users;
+    let users = &mut app_data.users.write().await;
     users.remove(&user);
 }
