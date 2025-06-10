@@ -8,9 +8,8 @@ pub struct NewUserData {
 }
 
 #[derive(Serialize, Debug)]
-pub struct RoomCreateData {
+pub struct RoomJoinData {
     pub room_id: RoomID,
-    pub seed: u64,
 }
 
 #[derive(Serialize, Debug)]
@@ -32,7 +31,7 @@ pub struct GameOverData {
 #[serde(tag = "command", rename_all = "snake_case")]
 pub enum Response {
     NewUser(NewUserData),
-    RoomCreate(RoomCreateData),
+    RoomJoin(RoomJoinData),
     Emote(EmoteData),
     GuessResponse(GuessData),
     GameStarted,

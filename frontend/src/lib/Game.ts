@@ -1,6 +1,6 @@
 import { GameSocket } from "$lib/GameSocket";
 import { gameState } from "$lib/GameState.svelte";
-import type { EmoteDataResponse, NewUserResponse, Response, RoomCreateResponse } from "$lib/GameModels";
+import type { EmoteDataResponse, NewUserResponse, Response, RoomJoinResponse } from "$lib/GameModels";
 
 export class Game {
   private ws: GameSocket;
@@ -22,6 +22,7 @@ export class Game {
       return;
     }
 
+
     if (!gameState.room_id) {
       console.warn('RoomId is undefined, cannot carry on');
       return;
@@ -39,8 +40,7 @@ export class Game {
       return;
     }
 
-    // TODO: joining of a room needs to be done by the backend for it to make any sense
-    gameState.room_id = room_id;
+    console.log(gameState.user_id);
 
     this.ws.send({
       command: "join_room",
@@ -51,7 +51,7 @@ export class Game {
   constructor(uri: string) {
     this.ws = new GameSocket(uri);
     this.ws.addEventListener('new_user', this.onNewUser.bind(this));
-    this.ws.addEventListener('room_create', this.onRoomCreate.bind(this));
+    this.ws.addEventListener('room_join', this.onRoomJoin.bind(this));
     this.ws.addEventListener('emote', this.onEmote.bind(this));
   }
 
@@ -60,8 +60,8 @@ export class Game {
     gameState.user_id = typedresponse.user_id;
   }
 
-  onRoomCreate(response: Response) {
-    const typedresponse = response as RoomCreateResponse;
+  onRoomJoin(response: Response) {
+    const typedresponse = response as RoomJoinResponse;
     gameState.room_id = typedresponse.room_id;
   }
 

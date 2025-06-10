@@ -34,10 +34,9 @@ export type NewUserResponse = {
   user_id: string,
 };
 
-export type RoomCreateResponse = {
-  command: "room_create",
+export type RoomJoinResponse = {
+  command: "room_join",
   room_id: string,
-  seed: number,
 };
 
 export type EmoteDataResponse = {
@@ -65,5 +64,5 @@ export type GameOverResponse = {
   }
 };
 
-export type ResponsesCommands = "new_user" | "room_create" | "emote" | "guess_response" | "game_started" | "game_over";
-export type Response = NewUserResponse | RoomCreateResponse | EmoteDataResponse | GuessDataResponse | GameStartedResponse | GameOverResponse;
+export type ResponsesCommands = "new_user" | "room_join" | "emote" | "guess_response" | "game_started" | "game_over";
+export type Response = NewUserResponse | RoomJoinResponse | EmoteDataResponse | GuessDataResponse | GameStartedResponse | GameOverResponse;

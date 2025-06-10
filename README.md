@@ -31,5 +31,5 @@ Todo:
 - [ ] Why does startup take forever?
 - [ ] Should not send names to the client
 - [ ] Backend should determine if `joingame` succeeded (i.e. client should make no decisions without the backend)
-- [ ] Refactor joining page to its own component
+- [X] Refactor joining page to its own component
 - [ ] Address TODOs in the code

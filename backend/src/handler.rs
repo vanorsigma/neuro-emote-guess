@@ -8,7 +8,7 @@ use backend::{
     data::{AppData, AppDataSync, GameState, RoomID, User, UserData},
     models::{
         requests::{EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData},
-        responses::{EmoteData, NewUserData, Response, RoomCreateData},
+        responses::{EmoteData, NewUserData, Response, RoomJoinData},
     },
     seventv::{FinalEmote, get_emote_for_emote_set_id},
 };
@@ -61,9 +61,8 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
         &app_data,
         user_id,
         Message::text(
-            serde_json::to_string(&Response::RoomCreate(RoomCreateData {
+            serde_json::to_string(&Response::RoomJoin(RoomJoinData {
                 room_id: RoomID(uuid.to_string()),
-                seed,
             }))
             .unwrap(),
         ),
@@ -103,7 +102,17 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
     game_state
         .user_data
         .insert(user_id.clone(), Default::default());
-    reply_to_user(&app_data, user_id, Message::text("ok")).await
+    reply_to_user(
+        &app_data,
+        user_id,
+        Message::text(
+            serde_json::to_string(&Response::RoomJoin(RoomJoinData {
+                room_id: data.room_id,
+            }))
+            .unwrap(),
+        ),
+    )
+    .await;
 }
 
 fn choose_random_emote(emote: &Vec<FinalEmote>, seed: u64, emote_index: u32) -> FinalEmote {
@@ -128,13 +137,7 @@ async fn send_random_emote(app_data: &mut AppDataSync, user_id: User, room_id: R
         return;
     }
 
-    let userdata_map = &mut app_data.users.write().await;
     for user in game_state.user_data.keys().cloned().collect::<Vec<User>>() {
-        let data = match userdata_map.get_mut(&user) {
-            Some(d) => d,
-            None => continue,
-        };
-
         let game_user_data = match game_state.user_data.get_mut(&user) {
             Some(d) => d,
             None => continue,
@@ -147,12 +150,14 @@ async fn send_random_emote(app_data: &mut AppDataSync, user_id: User, room_id: R
         let emote = choose_random_emote(&emotes, game_state.seed, game_user_data.emote);
         game_user_data.emote += 1;
 
-        let _ = data
-            .ws
-            .send(Message::text(
-                serde_json::to_string(&Response::Emote(EmoteData { emote })).unwrap(),
-            ))
-            .await;
+        tracing::debug!("testing: {:#?}", user);
+
+        reply_to_user(
+            &app_data,
+            user,
+            Message::text(serde_json::to_string(&Response::Emote(EmoteData { emote })).unwrap()),
+        )
+        .await;
     }
 }
 
@@ -162,7 +167,6 @@ pub async fn handle_start_game(mut app_data: AppDataSync, user_id: User, data: S
     }
 
     send_random_emote(&mut app_data, user_id, data.room_id).await;
-    // reply_to_user(&app_data, user_id, Message::text("OK")).await;
 }
 
 pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data: SubmitGuessData) {
