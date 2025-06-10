@@ -77,13 +77,3 @@ pub async fn get_emote_for_emote_set_id(
 
     get_emotes_for_emote_set(variable).await
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::seventv::get_emote_for_emote_set_id;
-
-    #[tokio::test]
-    async fn test_7tv() {
-        println!("{:#?}", get_emote_for_emote_set_id("01J452JCVG0000352W25T9VEND".to_string()).await);
-    }
-}
