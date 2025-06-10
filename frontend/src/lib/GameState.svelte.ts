@@ -5,5 +5,6 @@ export const gameState = $state({
   currentEmote: {
     name: '',
     url: '',
-  }
+  },
+  guess: '',
 });

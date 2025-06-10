@@ -6,10 +6,10 @@
   interface Props {
     room_id: string | undefined;
     emote: Emote;
+    user_input: string;
   }
 
-  let { room_id = undefined, emote }: Props = $props();
-  let user_input: string = $state('');
+  let { room_id = undefined, emote, user_input = $bindable('') }: Props = $props();
   let emote_guess_field: HTMLInputElement;
 
   let states: BoxState[] = $derived.by(() => {

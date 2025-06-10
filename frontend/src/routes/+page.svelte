@@ -17,6 +17,10 @@
   function startGame() {
     game.startGame();
   }
+
+  $effect(() => {
+    game.submitGuess(gameState.guess);
+  });
 </script>
 
 {#if !gameState.started}
@@ -40,7 +44,7 @@
       class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
     text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
     dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-      on:click={joinGame}>Join</button
+      onclick={joinGame}>Join</button
     >
   </div>
 
@@ -50,7 +54,7 @@
       class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
     text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
     dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-      on:click={onGenerateRoom}>Generate Room ID</button
+      onclick={onGenerateRoom}>Generate Room ID</button
     >
   </div>
 
@@ -60,7 +64,7 @@
       class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
     text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
     dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-      on:click={startGame}>Start</button
+      onclick={startGame}>Start</button
     >
   </div>
 
@@ -70,5 +74,9 @@
 {/if}
 
 {#if gameState.started}
-  <GameScreen room_id={gameState.room_id} emote={gameState.currentEmote}></GameScreen>
+  <GameScreen
+    room_id={gameState.room_id}
+    emote={gameState.currentEmote}
+    bind:user_input={gameState.guess}
+  ></GameScreen>
 {/if}

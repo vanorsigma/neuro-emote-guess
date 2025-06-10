@@ -10,8 +10,8 @@ struct Emotes;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct FinalEmote {
-    name: String,
-    url: String,
+    pub name: String,
+    pub url: String,
 }
 
 #[derive(Debug, Error)]

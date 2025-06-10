@@ -1,11 +1,12 @@
 use std::{
+    collections::HashMap,
     convert::Infallible,
     ops::{Deref, DerefMut},
     time::Duration,
 };
 
 use backend::{
-    data::{AppData, AppDataSync, GameState, RoomID, User, UserData},
+    data::{AppData, AppDataSync, GameState, RoomID, User, UserData, UserGameData},
     models::{
         requests::{EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData},
         responses::{EmoteData, NewUserData, Response, RoomJoinData},
@@ -28,8 +29,8 @@ pub async fn is_user_exists(app_data: &AppData, user: User) -> bool {
     app_data.users.read().await.contains_key(&user)
 }
 
-pub async fn reply_to_user(app_data: &AppData, user: User, message: Message) {
-    match app_data.users.write().await.get_mut(&user) {
+pub async fn reply_to_user(user_map: &mut HashMap<User, UserData>, user: User, message: Message) {
+    match user_map.get_mut(&user) {
         Some(m) => m.ws.send(message).await.unwrap(),
         None => return,
     };
@@ -58,7 +59,7 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
 
     // TODO: fix this
     reply_to_user(
-        &app_data,
+        &mut (*app_data.users.write().await),
         user_id,
         Message::text(
             serde_json::to_string(&Response::RoomJoin(RoomJoinData {
@@ -85,7 +86,12 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
     };
 
     game_state.duration = data.game_duration;
-    reply_to_user(&app_data, user_id, Message::text("OK")).await
+    reply_to_user(
+        &mut (*app_data.users.write().await),
+        user_id,
+        Message::text("OK"),
+    )
+    .await
 }
 
 pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRoomData) {
@@ -103,7 +109,7 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
         .user_data
         .insert(user_id.clone(), Default::default());
     reply_to_user(
-        &app_data,
+        &mut (*app_data.users.write().await),
         user_id,
         Message::text(
             serde_json::to_string(&Response::RoomJoin(RoomJoinData {
@@ -120,44 +126,49 @@ fn choose_random_emote(emote: &Vec<FinalEmote>, seed: u64, emote_index: u32) -> 
 
     // "wastes" the random for up to emote_index times
     for _ in 0..emote_index {
-        let _ = rng.random_bool(0.5);
+        let _ = emote.choose(&mut rng).unwrap();
     }
 
     emote.choose(&mut rng).unwrap().clone()
 }
 
-async fn send_random_emote(app_data: &mut AppDataSync, user_id: User, room_id: RoomID) {
-    let mut game_states = app_data.game_states.write().await;
-    let game_state = match game_states.get_mut(&room_id) {
+async fn send_random_emote(app_data: &mut AppDataSync, user: User, room_id: RoomID) {
+    let game_states = app_data.game_states.read().await;
+    let game_state = match game_states.get(&room_id) {
         Some(gs) => gs,
         None => return,
     };
 
-    if game_state.room_owner != user_id {
-        return;
-    }
+    let game_user_data = match game_state.user_data.get(&user) {
+        Some(d) => d,
+        None => return,
+    };
 
-    for user in game_state.user_data.keys().cloned().collect::<Vec<User>>() {
-        let game_user_data = match game_state.user_data.get_mut(&user) {
-            Some(d) => d,
-            None => continue,
-        };
+    let emotes = get_emote_for_emote_set_id(EMOTE_SET_ID.to_string())
+        .await
+        .inspect_err(|e| tracing::error!("{}", e))
+        .unwrap();
+    let emote = choose_random_emote(&emotes, game_state.seed, game_user_data.emote);
 
-        let emotes = get_emote_for_emote_set_id(EMOTE_SET_ID.to_string())
-            .await
-            .inspect_err(|e| tracing::error!("{}", e))
-            .unwrap();
-        let emote = choose_random_emote(&emotes, game_state.seed, game_user_data.emote);
-        game_user_data.emote += 1;
+    reply_to_user(
+        &mut (*app_data.users.write().await),
+        user,
+        Message::text(serde_json::to_string(&Response::Emote(EmoteData { emote })).unwrap()),
+    )
+    .await;
+}
 
-        tracing::debug!("testing: {:#?}", user);
+async fn send_random_emote_to_room(app_data: &mut AppDataSync, room_id: RoomID) {
+    let users = {
+        let game_states = app_data.game_states.read().await;
+        match game_states.get(&room_id) {
+            Some(gs) => gs.user_data.keys().cloned().collect::<Vec<User>>(),
+            None => return,
+        }
+    };
 
-        reply_to_user(
-            &app_data,
-            user,
-            Message::text(serde_json::to_string(&Response::Emote(EmoteData { emote })).unwrap()),
-        )
-        .await;
+    for user in users {
+        send_random_emote(app_data, user, room_id.clone()).await;
     }
 }
 
@@ -166,7 +177,19 @@ pub async fn handle_start_game(mut app_data: AppDataSync, user_id: User, data: S
         return;
     }
 
-    send_random_emote(&mut app_data, user_id, data.room_id).await;
+    let is_room_owner = {
+        let game_states = app_data.game_states.read().await;
+        let game_state = match game_states.get(&data.room_id) {
+            Some(gs) => gs,
+            None => return,
+        };
+
+        game_state.room_owner == user_id
+    };
+
+    if is_room_owner {
+        send_random_emote_to_room(&mut app_data, data.room_id).await
+    }
 }
 
 pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data: SubmitGuessData) {
@@ -174,20 +197,37 @@ pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data:
         return;
     }
 
-    send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
+    let scored_increase = {
+        let game_states = &mut app_data.game_states.write().await;
+        let game_state = match game_states.get_mut(&data.room_id) {
+            Some(gs) => gs,
+            None => return,
+        };
 
-    let game_states = &mut app_data.game_states.write().await;
-    let game_state = match game_states.get_mut(&data.room_id) {
-        Some(gs) => gs,
-        None => return,
+        let user_data = match game_state.user_data.get_mut(&user_id) {
+            Some(u) => u,
+            None => return,
+        };
+
+        let emotes = get_emote_for_emote_set_id(EMOTE_SET_ID.to_string())
+            .await
+            .inspect_err(|e| tracing::error!("{}", e))
+            .unwrap();
+        let target_emote = choose_random_emote(&emotes, game_state.seed, user_data.emote);
+
+        tracing::debug!("Target Emote: {:#?}", target_emote);
+        if target_emote.name == data.guess {
+            user_data.score += 1;
+            user_data.emote += 1;
+            true
+        } else {
+            false
+        }
     };
 
-    let mut user_data = match game_state.user_data.get(&user_id) {
-        Some(u) => u.clone(),
-        None => return,
-    };
-
-    user_data.score += 1; // TODO: as a test
+    if scored_increase {
+        send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
+    }
 }
 
 pub async fn handle_create_user(

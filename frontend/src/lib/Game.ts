@@ -40,11 +40,28 @@ export class Game {
       return;
     }
 
-    console.log(gameState.user_id);
-
     this.ws.send({
       command: "join_room",
       room_id
+    })
+  }
+
+  public submitGuess(guess: string) {
+    if (!gameState.user_id) {
+      console.warn('UserId is undefined, cannot carry on');
+      return;
+    }
+
+
+    if (!gameState.room_id) {
+      console.warn('RoomId is undefined, cannot carry on');
+      return;
+    }
+
+    this.ws.send({
+      command: "submit_guess",
+      room_id: gameState.room_id,
+      guess
     })
   }
 
@@ -69,5 +86,6 @@ export class Game {
     const typedresponse = response as EmoteDataResponse;
     gameState.started = true;
     gameState.currentEmote = typedresponse.emote;
+    gameState.guess = '';
   }
 }
