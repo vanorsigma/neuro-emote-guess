@@ -6,12 +6,12 @@ use std::{
 };
 
 use backend::{
-    data::{AppData, AppDataSync, GameState, RoomID, User, UserData, UserGameData},
+    data::{AppData, AppDataSync, GameState, GameStateView, RoomID, User, UserData, UserGameData},
     models::{
         requests::{EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData},
-        responses::{EmoteData, NewUserData, Response, RoomJoinData},
+        responses::{EmoteData, GameOverData, NewUserData, Response, RoomJoinData},
     },
-    seventv::{FinalEmote, get_emote_for_emote_set_id},
+    seventv::{get_emote_for_emote_set_id, FinalEmote},
 };
 use futures_util::{SinkExt, stream::SplitSink};
 use rand::{Rng, SeedableRng, seq::IndexedRandom};
@@ -21,7 +21,7 @@ use warp::filters::ws::{Message, WebSocket, Ws};
 
 // TODO: temporary constant
 const EMOTE_SET_ID: &str = "01J452JCVG0000352W25T9VEND";
-const DEFAULT_DURATION_SEC: u64 = 30;
+const DEFAULT_DURATION_SEC: u64 = 5;
 
 /// Utilities
 
@@ -172,18 +172,48 @@ async fn send_random_emote_to_room(app_data: &mut AppDataSync, room_id: RoomID) 
     }
 }
 
+async fn handle_game_end(mut app_data: AppDataSync, room_id: RoomID) {
+    // inform every user in the room that the game has ended
+    let mut game_states = app_data.game_states.write().await;
+    let game_state = match game_states.get_mut(&room_id) {
+        Some(gs) => gs,
+        None => return,
+    };
+
+    // TODO: in theory, we should handle score calculation here as well
+
+    let involved_users = game_state.user_data.keys();
+    // let user_data_map = app_data.users.write().await;
+
+    for user in involved_users {
+        reply_to_user(
+            &mut (*app_data.users.write().await),
+            user.clone(),
+            Message::text(serde_json::to_string(&Response::GameOver(GameOverData {})).unwrap()),
+        )
+        .await
+    }
+}
+
 pub async fn handle_start_game(mut app_data: AppDataSync, user_id: User, data: StartGameData) {
     if !is_user_exists(&app_data, user_id.clone()).await {
         return;
     }
 
     let is_room_owner = {
-        let game_states = app_data.game_states.read().await;
-        let game_state = match game_states.get(&data.room_id) {
+        let mut game_states = app_data.game_states.write().await;
+        let game_state = match game_states.get_mut(&data.room_id) {
             Some(gs) => gs,
             None => return,
         };
 
+        let duration = game_state.duration;
+        let cloned_appdata = app_data.clone();
+        let cloned_roomid = data.room_id.clone();
+        game_state.timer_handle = Some(tokio::task::spawn(async move {
+            tokio::time::sleep(duration).await;
+            handle_game_end(cloned_appdata, cloned_roomid).await;
+        }));
         game_state.room_owner == user_id
     };
 
@@ -262,5 +292,22 @@ pub async fn handle_create_user(
 
 pub async fn handle_delete_user(app_data: AppDataSync, user: User) {
     let users = &mut app_data.users.write().await;
+
+    // TODO: find a better way to do this, ideally with a async hashmap
+    let game_states = {
+        // to release the read lock
+        let game_states = app_data.game_states.read().await;
+        game_states.values().map(GameStateView::from).collect::<Vec<GameStateView>>()
+    };
+
+    for game_state in game_states {
+        if game_state.room_owner == user {
+            let mut game_states_write = app_data.game_states.write().await;
+            game_states_write.remove(&game_state.room_id);
+            break;
+        }
+    }
+
+    tracing::debug!("Removing user: {:#?}", user);
     users.remove(&user);
 }

@@ -34,3 +34,4 @@ Todo:
 - [X] Refactor joining page to its own component
 - [ ] Address TODOs in the code
 - [ ] Use a mutable hashmap so that other users are not affected by a single user submitting a guess
+- [X] Game end

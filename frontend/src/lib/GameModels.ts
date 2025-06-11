@@ -58,10 +58,10 @@ export type GameStartedResponse = {
 
 export type GameOverResponse = {
   command: "game_over",
-  emote: {
-    name: string,
-    id: string,
-  }
+  // emote: {
+  //   name: string,
+  //   id: string,
+  // }
 };
 
 export type ResponsesCommands = "new_user" | "room_join" | "emote" | "guess_response" | "game_started" | "game_over";

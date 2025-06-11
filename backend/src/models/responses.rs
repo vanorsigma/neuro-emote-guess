@@ -24,7 +24,8 @@ pub struct GuessData {
 
 #[derive(Serialize, Debug)]
 pub struct GameOverData {
-    pub emote: FinalEmote
+    // TODO: winning information
+    // pub emote: FinalEmote
 }
 
 #[derive(Serialize, Debug)]

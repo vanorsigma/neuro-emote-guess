@@ -1,6 +1,6 @@
 import { GameSocket } from "$lib/GameSocket";
 import { gameState } from "$lib/GameState.svelte";
-import type { EmoteDataResponse, NewUserResponse, Response, RoomJoinResponse } from "$lib/GameModels";
+import type { EmoteDataResponse, GameOverResponse, NewUserResponse, Response, RoomJoinResponse } from "$lib/GameModels";
 
 export class Game {
   private ws: GameSocket;
@@ -70,6 +70,7 @@ export class Game {
     this.ws.addEventListener('new_user', this.onNewUser.bind(this));
     this.ws.addEventListener('room_join', this.onRoomJoin.bind(this));
     this.ws.addEventListener('emote', this.onEmote.bind(this));
+    this.ws.addEventListener('game_over', this.onGameOver.bind(this));
   }
 
   onNewUser(response: Response) {
@@ -87,5 +88,11 @@ export class Game {
     gameState.started = true;
     gameState.currentEmote = typedresponse.emote;
     gameState.guess = '';
+  }
+
+  onGameOver(response: Response) {
+    // const _typedresponse = response as GameOverResponse;
+    console.log('game over')
+    gameState.started = false;
   }
 }

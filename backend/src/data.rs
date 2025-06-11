@@ -1,6 +1,10 @@
 use futures_util::stream::SplitSink;
 use std::{collections::HashMap, sync::Arc};
-use tokio::{sync::{Mutex, RwLock}, time::Duration};
+use tokio::{
+    sync::{Mutex, RwLock},
+    task::JoinHandle,
+    time::Duration,
+};
 
 use serde::{Deserialize, Serialize};
 use warp::filters::ws::{Message, WebSocket, Ws};
@@ -13,7 +17,7 @@ pub struct RoomID(pub String);
 #[repr(transparent)]
 pub struct User(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GameState {
     pub room_id: RoomID,
     pub room_owner: User,
@@ -21,12 +25,20 @@ pub struct GameState {
     pub emote_set_id: String,
     pub duration: Duration,
     pub seed: u64,
+    pub timer_handle: Option<JoinHandle<()>>,
+}
+
+/// A cloneable GameState "view"; enough for identification purposes
+#[derive(Debug, Clone)]
+pub struct GameStateView {
+    pub room_id: RoomID,
+    pub room_owner: User,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct UserGameData {
     pub score: u32,
-    pub emote: u32
+    pub emote: u32,
 }
 
 #[derive(Debug)]
@@ -51,6 +63,16 @@ impl GameState {
             emote_set_id: Default::default(),
             duration,
             seed,
+            timer_handle: None,
+        }
+    }
+}
+
+impl From<&GameState> for GameStateView {
+    fn from(value: &GameState) -> Self {
+        GameStateView {
+            room_owner: value.room_owner.clone(),
+            room_id: value.room_id.clone(),
         }
     }
 }
