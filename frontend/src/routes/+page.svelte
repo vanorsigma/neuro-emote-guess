@@ -25,6 +25,10 @@
     gameState.display_wrong = false;
   }
 
+  function skip() {
+    game.skip();
+  }
+
   $effect(() => {
     if (!gameState.started) {
       game.editGame();
@@ -104,5 +108,6 @@
     showWrong={gameState.display_wrong}
     {onTyping}
     score={gameState.score}
+    {skip}
   ></GameScreen>
 {/if}

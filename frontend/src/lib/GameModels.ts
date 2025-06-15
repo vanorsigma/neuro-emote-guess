@@ -26,7 +26,12 @@ export type SubmitGuessRequest = {
   guess: string,
 };
 
-export type Request = CreateRoomRequest | EditRoomRequest | JoinRoomRequest | StartGameRequest | SubmitGuessRequest;
+export type SkipRequest = {
+  command: "skip",
+  room_id: string,
+}
+
+export type Request = CreateRoomRequest | EditRoomRequest | JoinRoomRequest | StartGameRequest | SubmitGuessRequest | SkipRequest;
 
 /** Responses */
 export type NewUserResponse = {

@@ -65,6 +65,24 @@ export class Game {
     })
   }
 
+  public skip() {
+    if (!gameState.user_id) {
+      console.warn('UserId is undefined, cannot carry on');
+      return;
+    }
+
+
+    if (!gameState.room_id) {
+      console.warn('RoomId is undefined, cannot carry on');
+      return;
+    }
+
+    this.ws.send({
+      command: "skip",
+      room_id: gameState.room_id
+    });
+  }
+
   public editGame() {
     if (!gameState.user_id) {
       console.warn('UserId is undefined, cannot carry on');
@@ -105,7 +123,11 @@ export class Game {
 
   onEmote(response: Response) {
     const typedresponse = response as EmoteDataResponse;
-    gameState.started = true;
+    if (!gameState.started) {
+      gameState.started = true;
+      gameState.score = 0;
+    }
+
     gameState.currentEmote = typedresponse.emote;
     gameState.guess = '';
   }

@@ -27,11 +27,17 @@ pub struct SubmitGuessData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct SkipData {
+    pub room_id: RoomID,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "command", rename_all = "snake_case")]
 pub enum Request {
     CreateRoom,
     EditRoom(EditRoomData),
     JoinRoom(JoinRoomData),
     StartGame(StartGameData),
-    SubmitGuess(SubmitGuessData)
+    SubmitGuess(SubmitGuessData),
+    Skip(SkipData),
 }

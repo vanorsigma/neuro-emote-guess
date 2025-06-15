@@ -8,7 +8,7 @@ use std::{
 use backend::{
     data::{AppData, AppDataSync, GameState, GameStateView, RoomID, User, UserData, UserGameData},
     models::{
-        requests::{EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData},
+        requests::{EditRoomData, JoinRoomData, Request, SkipData, StartGameData, SubmitGuessData},
         responses::{EmoteData, EmoteResponse, GameOverData, NewUserData, Response, RoomJoinData},
     },
     seventv::{FinalEmote, get_emote_for_emote_set_id},
@@ -23,7 +23,8 @@ use warp::filters::ws::{Message, WebSocket, Ws};
 const EMOTE_SET_ID: &str = "01J452JCVG0000352W25T9VEND";
 const DEFAULT_DURATION_SEC: u64 = 5;
 const CORRECT_SCORE: f32 = 1.0;
-const INCORRECT_SCORE: f32 = -0.1;
+const INCORRECT_SCORE: f32 = -0.2;
+const SKIP_SCORE: f32 = -0.1;
 
 /// Utilities
 
@@ -203,6 +204,8 @@ async fn handle_game_end(mut app_data: AppDataSync, room_id: RoomID) {
         )
         .await
     }
+
+    // TODO: reset all scores
 }
 
 pub async fn handle_start_game(mut app_data: AppDataSync, user_id: User, data: StartGameData) {
@@ -299,6 +302,45 @@ pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data:
     if scored_increase {
         send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
     }
+}
+
+pub async fn handle_skip(mut app_data: AppDataSync, user_id: User, data: SkipData) {
+    if !is_user_exists(&app_data, user_id.clone()).await {
+        return;
+    }
+
+    {
+        let game_states = &mut app_data.game_states.write().await;
+        let game_state = match game_states.get_mut(&data.room_id) {
+            Some(gs) => gs,
+            None => return,
+        };
+
+        let user_data = match game_state.user_data.get_mut(&user_id) {
+            Some(u) => u,
+            None => return,
+        };
+
+        user_data.score += SKIP_SCORE;
+        user_data.emote += 1;
+
+        reply_to_user(
+            &mut (*app_data.users.write().await),
+            user_id.clone(),
+            Message::text(
+                serde_json::to_string(&Response::GuessResponse(
+                    backend::models::responses::GuessData {
+                        matched_chars: "".to_string(),
+                        score: user_data.score,
+                    },
+                ))
+                .unwrap(),
+            ),
+        )
+        .await;
+    }
+
+    send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
 }
 
 pub async fn handle_create_user(

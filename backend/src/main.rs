@@ -9,7 +9,7 @@ use backend::{
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use handler::{
     handle_create_room, handle_create_user, handle_delete_user, handle_edit_room, handle_join_room,
-    handle_start_game, handle_submit_guess,
+    handle_skip, handle_start_game, handle_submit_guess,
 };
 use tokio::{
     pin,
@@ -34,6 +34,7 @@ async fn handle_room(app_data: AppDataSync, current_user: User, request: Request
         Request::SubmitGuess(submit_guess_data) => {
             handle_submit_guess(app_data, current_user, submit_guess_data).await
         }
+        Request::Skip(skip_data) => handle_skip(app_data, current_user, skip_data).await,
     }
 }
 

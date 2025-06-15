@@ -11,6 +11,7 @@
     showWrong: boolean;
     onTyping: () => void;
     score: number;
+    skip: () => void;
   }
 
   let {
@@ -20,9 +21,11 @@
     submitGuess = () => {},
     showWrong,
     onTyping = () => {},
-    score
+    score,
+    skip
   }: Props = $props();
   let emote_guess_field: HTMLInputElement;
+  let skip_latch = false;
 
   let states: BoxState[] = $derived.by(() => {
     return [...emote.matched_chars].map((chr, index) => {
@@ -34,13 +37,17 @@
         return BoxState.CORRECT;
       }
 
-      console.log('oijawfoei', showWrong);
-
       return showWrong ? BoxState.WRONG : BoxState.EMPTY;
     });
   });
 
-  function handleKeydown() {
+  function handleKeydown(evt: KeyboardEvent) {
+    if (evt.key === ' ' && !skip_latch) {
+      skip_latch = true;
+      evt.preventDefault();
+      skip();
+    }
+
     emote_guess_field.focus();
   }
 
@@ -70,7 +77,22 @@
     class="h-0 outline-none"
     type="text"
   />
-  <p>Score:{score}</p>
+  <p>Your Score: {score.toFixed(1)}</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+  <button
+    type="button"
+    class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
+    text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
+    dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+    onclick={skip}
+    tabindex="0">Skip</button
+  >
 </div>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window
+  onkeydown={handleKeydown}
+  onkeyup={() => {
+    skip_latch = false;
+  }}
+/>
