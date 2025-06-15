@@ -11,10 +11,7 @@
   class:correct={state === BoxState.CORRECT}
   class:wrong={state === BoxState.WRONG}
 >
-  <p
-    class="flex-auto text-center text-6xl"
-    class:hidden={state === BoxState.EMPTY || state === BoxState.WRONG}
-  >
+  <p class="flex-auto text-center text-6xl" class:hidden={letter === 'ඬ'}>
     {letter}
   </p>
 </div>

@@ -35,3 +35,4 @@ Todo:
 - [ ] Address TODOs in the code
 - [ ] Use a mutable hashmap so that other users are not affected by a single user submitting a guess
 - [X] Game end
+- [X] Restrict input to exclude '?'

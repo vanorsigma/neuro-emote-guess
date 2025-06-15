@@ -7,23 +7,47 @@
     room_id: string | undefined;
     emote: Emote;
     user_input: string;
+    submitGuess: () => void;
+    showWrong: boolean;
+    onTyping: () => void;
   }
 
-  let { room_id = undefined, emote, user_input = $bindable('') }: Props = $props();
+  let {
+    room_id = undefined,
+    emote,
+    user_input = $bindable(''),
+    submitGuess = () => {},
+    showWrong,
+    onTyping = () => {}
+  }: Props = $props();
   let emote_guess_field: HTMLInputElement;
 
   let states: BoxState[] = $derived.by(() => {
-    return [...emote.name].map((chr, index) => {
+    return [...emote.matched_chars].map((chr, index) => {
       if (index >= user_input.length) {
         return BoxState.EMPTY;
       }
 
-      return user_input[index] === chr ? BoxState.CORRECT : BoxState.WRONG;
+      if (user_input[index] === chr) {
+        return BoxState.CORRECT;
+      }
+
+      console.log('oijawfoei', showWrong);
+
+      return showWrong ? BoxState.WRONG : BoxState.EMPTY;
     });
   });
 
   function handleKeydown() {
     emote_guess_field.focus();
+  }
+
+  function onTextFieldKeydown(evt: KeyboardEvent) {
+    if (evt.key === 'Enter') {
+      submitGuess();
+    }
+
+    onTyping();
   }
 </script>
 
@@ -31,14 +55,15 @@
 <div class="flex flex-col items-center gap-2">
   <img class="max-w-lg flex-none" src={emote.url} alt="pepega just look at the emote" />
   <div class="flex flex-row gap-3">
-    {#each emote.name as chr, index (index)}
-      <Box letter={chr} state={states[index]} />
+    {#each emote.matched_chars as chr, index (chr + index)}
+      <Box letter={user_input[index] ?? ' '} state={states[index]} />
     {/each}
   </div>
   <input
     bind:this={emote_guess_field}
     bind:value={user_input}
-    maxlength={emote.name.length}
+    onkeydown={onTextFieldKeydown}
+    maxlength={emote.matched_chars.length}
     id="emote_guess"
     class="h-0 outline-none"
     type="text"

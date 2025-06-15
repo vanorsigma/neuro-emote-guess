@@ -5,7 +5,6 @@
   import GameScreen from './GameScreen.svelte';
 
   let game = new Game('ws://127.0.0.1:3030/ws');
-
   function onGenerateRoom() {
     game.createRoom();
   }
@@ -18,11 +17,18 @@
     game.startGame();
   }
 
+  function submitGuess() {
+    game.submitGuess(gameState.guess.padEnd(gameState.currentEmote.matched_chars.length, 'ඬ'));
+  }
+
+  function onTyping() {
+    gameState.display_wrong = false;
+  }
+
   $effect(() => {
-    if (gameState.started) {
-      game.submitGuess(gameState.guess);
-    } else {
+    if (!gameState.started) {
       game.editGame();
+      return;
     }
   });
 </script>
@@ -79,7 +85,7 @@
       id="duration"
       name="duration"
       min="1"
-      max="100"
+      max="3000"
       bind:value={gameState.expectedDuration}
     />
   </div>
@@ -94,5 +100,8 @@
     room_id={gameState.room_id}
     emote={gameState.currentEmote}
     bind:user_input={gameState.guess}
+    {submitGuess}
+    showWrong={gameState.display_wrong}
+    {onTyping}
   ></GameScreen>
 {/if}

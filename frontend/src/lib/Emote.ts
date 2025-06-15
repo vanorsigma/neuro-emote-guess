@@ -1,4 +1,4 @@
 export interface Emote {
-  name: string;
+  matched_chars: string;
   url: string;
 };

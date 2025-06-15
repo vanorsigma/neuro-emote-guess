@@ -42,7 +42,7 @@ export type RoomJoinResponse = {
 export type EmoteDataResponse = {
   command: "emote",
   emote: {
-    name: string,
+    matched_chars: string,
     url: string,
   }
 };

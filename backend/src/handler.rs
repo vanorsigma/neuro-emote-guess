@@ -9,9 +9,9 @@ use backend::{
     data::{AppData, AppDataSync, GameState, GameStateView, RoomID, User, UserData, UserGameData},
     models::{
         requests::{EditRoomData, JoinRoomData, Request, StartGameData, SubmitGuessData},
-        responses::{EmoteData, GameOverData, NewUserData, Response, RoomJoinData},
+        responses::{EmoteData, EmoteResponse, GameOverData, NewUserData, Response, RoomJoinData},
     },
-    seventv::{get_emote_for_emote_set_id, FinalEmote},
+    seventv::{FinalEmote, get_emote_for_emote_set_id},
 };
 use futures_util::{SinkExt, stream::SplitSink};
 use rand::{Rng, SeedableRng, seq::IndexedRandom};
@@ -86,12 +86,12 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
     };
 
     game_state.duration = tokio::time::Duration::from_secs(data.game_duration);
-    reply_to_user(
-        &mut (*app_data.users.write().await),
-        user_id,
-        Message::text("OK"),
-    )
-    .await
+    // reply_to_user(
+    //     &mut (*app_data.users.write().await),
+    //     user_id,
+    //     Message::text("OK"),
+    // )
+    // .await
 }
 
 pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRoomData) {
@@ -153,7 +153,15 @@ async fn send_random_emote(app_data: &mut AppDataSync, user: User, room_id: Room
     reply_to_user(
         &mut (*app_data.users.write().await),
         user,
-        Message::text(serde_json::to_string(&Response::Emote(EmoteData { emote })).unwrap()),
+        Message::text(
+            serde_json::to_string(&Response::Emote(EmoteData {
+                emote: EmoteResponse {
+                    matched_chars: emote.name.as_bytes().iter().map(|_| 'ඬ').collect(),
+                    url: emote.url,
+                },
+            }))
+            .unwrap(),
+        ),
     )
     .await;
 }
@@ -227,7 +235,7 @@ pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data:
         return;
     }
 
-    let scored_increase = {
+    let (guessed_char, scored_increase) = {
         let game_states = &mut app_data.game_states.write().await;
         let game_state = match game_states.get_mut(&data.room_id) {
             Some(gs) => gs,
@@ -246,17 +254,46 @@ pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data:
         let target_emote = choose_random_emote(&emotes, game_state.seed, user_data.emote);
 
         tracing::debug!("Target Emote: {:#?}", target_emote);
-        if target_emote.name == data.guess {
+        let user_emote_vec = data.guess.to_lowercase().chars().collect::<Vec<_>>();
+        let guessed_char = target_emote
+            .name
+            .to_lowercase()
+            .chars()
+            .enumerate()
+            .map(|(i, target_char)| {
+                if user_emote_vec[i] == target_char {
+                    target_char
+                } else {
+                    'ඬ'
+                }
+            })
+            .collect::<String>();
+
+        if target_emote.name.to_lowercase() == data.guess.to_lowercase() {
             user_data.score += 1;
             user_data.emote += 1;
-            true
+            (guessed_char, true)
         } else {
-            false
+            (guessed_char, false)
         }
     };
 
     if scored_increase {
         send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
+    } else {
+        reply_to_user(
+            &mut (*app_data.users.write().await),
+            user_id.clone(),
+            Message::text(
+                serde_json::to_string(&Response::GuessResponse(
+                    backend::models::responses::GuessData {
+                        matched_chars: guessed_char,
+                    },
+                ))
+                .unwrap(),
+            ),
+        )
+        .await;
     }
 }
 
@@ -297,7 +334,10 @@ pub async fn handle_delete_user(app_data: AppDataSync, user: User) {
     let game_states = {
         // to release the read lock
         let game_states = app_data.game_states.read().await;
-        game_states.values().map(GameStateView::from).collect::<Vec<GameStateView>>()
+        game_states
+            .values()
+            .map(GameStateView::from)
+            .collect::<Vec<GameStateView>>()
     };
 
     for game_state in game_states {
