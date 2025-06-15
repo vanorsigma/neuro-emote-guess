@@ -7,4 +7,5 @@ export const gameState = $state({
     url: '',
   },
   guess: '',
+  expectedDuration: 1,
 });

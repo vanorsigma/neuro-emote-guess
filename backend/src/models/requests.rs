@@ -12,7 +12,7 @@ pub struct StartGameData {
 #[derive(Deserialize, Debug, Clone)]
 pub struct EditRoomData {
     pub room_id: RoomID,
-    pub game_duration: Duration,
+    pub game_duration: u64,
 }
 
 #[derive(Deserialize, Debug, Clone)]

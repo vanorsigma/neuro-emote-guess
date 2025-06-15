@@ -65,6 +65,25 @@ export class Game {
     })
   }
 
+  public editGame() {
+    if (!gameState.user_id) {
+      console.warn('UserId is undefined, cannot carry on');
+      return;
+    }
+
+
+    if (!gameState.room_id) {
+      console.warn('RoomId is undefined, cannot carry on');
+      return;
+    }
+
+    this.ws.send({
+      command: "edit_room",
+      game_duration: gameState.expectedDuration,
+      room_id: gameState.room_id,
+    })
+  }
+
   constructor(uri: string) {
     this.ws = new GameSocket(uri);
     this.ws.addEventListener('new_user', this.onNewUser.bind(this));

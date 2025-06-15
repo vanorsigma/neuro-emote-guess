@@ -19,6 +19,7 @@ use warp::ws::WebSocket;
 use warp::{Filter, filters::ws::Ws};
 
 async fn handle_room(app_data: AppDataSync, current_user: User, request: Request) {
+    tracing::debug!("Incoming: {request:#?}");
     match request {
         Request::CreateRoom => handle_create_room(app_data, current_user).await,
         Request::EditRoom(edit_room_data) => {

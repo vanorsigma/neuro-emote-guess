@@ -7,7 +7,7 @@ export type CreateRoomRequest = {
 export type EditRoomRequest = {
   command: "edit_room",
   room_id: string,
-  game_duration: string,
+  game_duration: number,
 };
 
 export type JoinRoomRequest = {

@@ -85,7 +85,7 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
         }
     };
 
-    game_state.duration = data.game_duration;
+    game_state.duration = tokio::time::Duration::from_secs(data.game_duration);
     reply_to_user(
         &mut (*app_data.users.write().await),
         user_id,

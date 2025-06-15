@@ -19,7 +19,11 @@
   }
 
   $effect(() => {
-    game.submitGuess(gameState.guess);
+    if (gameState.started) {
+      game.submitGuess(gameState.guess);
+    } else {
+      game.editGame();
+    }
   });
 </script>
 
@@ -66,6 +70,18 @@
     dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
       onclick={startGame}>Start</button
     >
+  </div>
+
+  <div>
+    <label for="duration">Duration in seconds:</label>
+    <input
+      type="number"
+      id="duration"
+      name="duration"
+      min="1"
+      max="100"
+      bind:value={gameState.expectedDuration}
+    />
   </div>
 
   <div>
