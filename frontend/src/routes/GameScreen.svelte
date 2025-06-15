@@ -10,6 +10,7 @@
     submitGuess: () => void;
     showWrong: boolean;
     onTyping: () => void;
+    score: number;
   }
 
   let {
@@ -18,7 +19,8 @@
     user_input = $bindable(''),
     submitGuess = () => {},
     showWrong,
-    onTyping = () => {}
+    onTyping = () => {},
+    score
   }: Props = $props();
   let emote_guess_field: HTMLInputElement;
 
@@ -68,6 +70,7 @@
     class="h-0 outline-none"
     type="text"
   />
+  <p>Score:{score}</p>
 </div>
 
 <svelte:window onkeydown={handleKeydown} />

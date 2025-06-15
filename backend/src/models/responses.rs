@@ -26,6 +26,7 @@ pub struct EmoteData {
 #[derive(Serialize, Debug)]
 pub struct GuessData {
     pub matched_chars: String,
+    pub score: f32,
 }
 
 #[derive(Serialize, Debug)]

@@ -103,5 +103,6 @@
     {submitGuess}
     showWrong={gameState.display_wrong}
     {onTyping}
+    score={gameState.score}
   ></GameScreen>
 {/if}

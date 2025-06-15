@@ -8,5 +8,6 @@ export const gameState = $state({
     url: '',
   },
   guess: '',
+  score: 0,
   expectedDuration: 100,
 });

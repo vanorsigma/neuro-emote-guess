@@ -37,7 +37,7 @@ pub struct GameStateView {
 
 #[derive(Debug, Default, Clone)]
 pub struct UserGameData {
-    pub score: u32,
+    pub score: f32,
     pub emote: u32,
 }
 

@@ -119,6 +119,7 @@ export class Game {
   onGuessResponse(response: Response) {
     const typedresponse = response as GuessDataResponse;
     gameState.currentEmote.matched_chars = typedresponse.matched_chars;
+    gameState.score = typedresponse.score;
     gameState.display_wrong = true;
   }
 }

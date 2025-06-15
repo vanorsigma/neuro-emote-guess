@@ -49,7 +49,8 @@ export type EmoteDataResponse = {
 
 export type GuessDataResponse = {
   command: "guess_response",
-  matched_chars: string
+  matched_chars: string,
+  score: number,
 };
 
 export type GameStartedResponse = {
