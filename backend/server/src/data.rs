@@ -1,4 +1,5 @@
 use futures_util::stream::SplitSink;
+use jwt_simple::prelude::{HS256Key, HS512Key};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::{Mutex, RwLock},
@@ -8,6 +9,8 @@ use tokio::{
 
 use serde::{Deserialize, Serialize};
 use warp::filters::ws::{Message, WebSocket, Ws};
+
+use crate::jwt::{JWTClaim, JWTManager};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
@@ -44,15 +47,27 @@ pub struct UserGameData {
 #[derive(Debug)]
 pub struct UserData {
     pub user: User,
+    pub claim: JWTClaim,
     pub ws: SplitSink<WebSocket, Message>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AppData {
     pub game_states: Arc<RwLock<HashMap<RoomID, GameState>>>,
     pub users: Arc<RwLock<HashMap<User, UserData>>>,
+    pub jwt: Arc<JWTManager<HS256Key>>,
 }
 pub type AppDataSync = Arc<AppData>;
+
+impl AppData {
+    pub fn new(key: HS256Key) -> Self {
+        AppData {
+            game_states: Default::default(),
+            users: Default::default(),
+            jwt: JWTManager::<_>::new(key).into()
+        }
+    }
+}
 
 impl GameState {
     pub fn new(room_id: RoomID, owner_id: User, duration: Duration, seed: u64) -> Self {

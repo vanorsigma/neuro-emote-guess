@@ -102,8 +102,8 @@ export class Game {
     })
   }
 
-  constructor(uri: string) {
-    this.ws = new GameSocket(uri);
+  constructor(uri: string, session_token: string) {
+    this.ws = new GameSocket(uri, session_token);
     this.ws.addEventListener('new_user', this.onNewUser.bind(this));
     this.ws.addEventListener('room_join', this.onRoomJoin.bind(this));
     this.ws.addEventListener('emote', this.onEmote.bind(this));

@@ -94,8 +94,8 @@
 <div class="flex flex-col items-center gap-2">
   <h1 class="center text-4xl font-bold">Scoreboard</h1>
   <ul>
-    {#each scores as [playerid, score] (playerid)}
-      <li>{playerid}: {score}</li>
+    {#each scores as [player, score] (player)}
+      <li>{player}: {score}</li>
     {/each}
   </ul>
 </div>

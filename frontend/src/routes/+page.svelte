@@ -4,7 +4,22 @@
   import { Game } from '$lib/Game';
   import GameScreen from './GameScreen.svelte';
 
-  let game = new Game('ws://127.0.0.1:3030/ws');
+  let game = new Game('ws://127.0.0.1:3030/ws', getSessionTokenOrRedirect());
+
+  function getSessionTokenOrRedirect() {
+    const sessionToken = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('session_token='))
+      ?.split('=')[1];
+
+    if (!sessionToken) {
+      window.history.pushState({}, '', '/login');
+      return '';
+    }
+
+    return sessionToken;
+  }
+
   function onGenerateRoom() {
     game.createRoom();
   }

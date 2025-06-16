@@ -7,6 +7,7 @@ use std::{
 
 use backend::{
     data::{AppData, AppDataSync, GameState, GameStateView, RoomID, User, UserData, UserGameData},
+    jwt::JWTClaim,
     models::{
         requests::{EditRoomData, JoinRoomData, Request, SkipData, StartGameData, SubmitGuessData},
         responses::{
@@ -176,11 +177,17 @@ async fn send_random_emote(app_data: &mut AppDataSync, user: User, room_id: Room
 async fn inform_room_game_state(app_data: &mut AppDataSync, room_id: RoomID) {
     let (scores, users) = {
         let game_states = app_data.game_states.read().await;
+        let user_data = app_data.users.read().await;
         match game_states.get(&room_id) {
             Some(gs) => (
                 gs.user_data
                     .iter()
-                    .map(|(user, user_game_data)| (user.0.clone(), user_game_data.score.clone()))
+                    .map(|(user, user_game_data)| {
+                        (
+                            user_data.get(&user).unwrap().claim.data.login.clone(),
+                            user_game_data.score.clone(),
+                        )
+                    })
                     .collect::<HashMap<_, _>>(),
                 gs.user_data.keys().cloned().collect::<Vec<_>>(),
             ),
@@ -381,6 +388,7 @@ pub async fn handle_skip(mut app_data: AppDataSync, user_id: User, data: SkipDat
 pub async fn handle_create_user(
     app_data: AppDataSync,
     mut ws: SplitSink<WebSocket, Message>,
+    claim: JWTClaim,
 ) -> User {
     let users = &mut app_data.users.write().await;
     let uuid = Uuid::new_v4();
@@ -401,6 +409,7 @@ pub async fn handle_create_user(
         user.clone(),
         backend::data::UserData {
             user: user.clone(),
+            claim,
             ws,
         },
     );

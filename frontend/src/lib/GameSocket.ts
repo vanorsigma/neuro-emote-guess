@@ -5,15 +5,22 @@ export class GameSocket {
   private dispatchMap: Map<ResponsesCommands, Array<(response: Response) => void>>;
   private backlog: Array<string>;
 
-  constructor(uri: string) {
+  constructor(uri: string, session_token: string) {
     this.ws = new WebSocket(uri);
     this.dispatchMap = new Map();
     this.backlog = [];
 
+    this.authenticate(session_token);
     this.ws.addEventListener('message', this.onMessage.bind(this));
     this.ws.addEventListener('open', this.onConnect.bind(this));
     this.ws.addEventListener('close', this.onDisconnect.bind(this));
     this.ws.addEventListener('error', this.onError.bind(this));
+  }
+
+  authenticate(session_token: string) {
+    this.send({
+      jwt: session_token
+    })
   }
 
   public addEventListener(event: ResponsesCommands, fn: (response: Response) => void) {

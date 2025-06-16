@@ -2,7 +2,12 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-use crate::data::{RoomID, User};
+use crate::{data::{RoomID, User}, jwt::JWTClaim};
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct AuthenticateData {
+    pub jwt: String
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct StartGameData {

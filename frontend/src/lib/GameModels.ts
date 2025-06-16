@@ -1,5 +1,9 @@
 /** Requests */
 
+export type Authenticate = {
+  jwt: string,
+}
+
 export type CreateRoomRequest = {
   command: "create_room"
 };
@@ -31,7 +35,7 @@ export type SkipRequest = {
   room_id: string,
 }
 
-export type Request = CreateRoomRequest | EditRoomRequest | JoinRoomRequest | StartGameRequest | SubmitGuessRequest | SkipRequest;
+export type Request = CreateRoomRequest | EditRoomRequest | JoinRoomRequest | StartGameRequest | SubmitGuessRequest | SkipRequest | Authenticate;
 
 /** Responses */
 export type NewUserResponse = {
