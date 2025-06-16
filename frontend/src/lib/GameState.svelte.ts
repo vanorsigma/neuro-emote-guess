@@ -9,5 +9,6 @@ export const gameState = $state({
   },
   guess: '',
   score: 0,
+  scores: ([] as unknown as [string, number][]),
   expectedDuration: 100,
 });

@@ -11,6 +11,7 @@
     showWrong: boolean;
     onTyping: () => void;
     score: number;
+    scores: [string, number][];
     skip: () => void;
   }
 
@@ -22,6 +23,7 @@
     showWrong,
     onTyping = () => {},
     score,
+    scores,
     skip
   }: Props = $props();
   let emote_guess_field: HTMLInputElement;
@@ -88,6 +90,14 @@
     onclick={skip}
     tabindex="0">Skip</button
   >
+</div>
+<div class="flex flex-col items-center gap-2">
+  <h1 class="center text-4xl font-bold">Scoreboard</h1>
+  <ul>
+    {#each scores as [playerid, score] (playerid)}
+      <li>{playerid}: {score}</li>
+    {/each}
+  </ul>
 </div>
 
 <svelte:window

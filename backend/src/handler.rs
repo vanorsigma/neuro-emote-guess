@@ -9,13 +9,17 @@ use backend::{
     data::{AppData, AppDataSync, GameState, GameStateView, RoomID, User, UserData, UserGameData},
     models::{
         requests::{EditRoomData, JoinRoomData, Request, SkipData, StartGameData, SubmitGuessData},
-        responses::{EmoteData, EmoteResponse, GameOverData, NewUserData, Response, RoomJoinData},
+        responses::{
+            EmoteData, EmoteResponse, GameOverData, GameUpdateData, NewUserData, Response,
+            RoomJoinData,
+        },
     },
     seventv::{FinalEmote, get_emote_for_emote_set_id},
 };
 use futures_util::{SinkExt, stream::SplitSink};
 use rand::{Rng, SeedableRng, seq::IndexedRandom};
 use rand_chacha::ChaCha8Rng;
+use serde_json::to_string;
 use uuid::{Uuid, uuid};
 use warp::filters::ws::{Message, WebSocket, Ws};
 
@@ -169,6 +173,36 @@ async fn send_random_emote(app_data: &mut AppDataSync, user: User, room_id: Room
     .await;
 }
 
+async fn inform_room_game_state(app_data: &mut AppDataSync, room_id: RoomID) {
+    let (scores, users) = {
+        let game_states = app_data.game_states.read().await;
+        match game_states.get(&room_id) {
+            Some(gs) => (
+                gs.user_data
+                    .iter()
+                    .map(|(user, user_game_data)| (user.0.clone(), user_game_data.score.clone()))
+                    .collect::<HashMap<_, _>>(),
+                gs.user_data.keys().cloned().collect::<Vec<_>>(),
+            ),
+            None => return,
+        }
+    };
+
+    for user in users {
+        reply_to_user(
+            &mut (*app_data.users.write().await),
+            user,
+            Message::text(
+                serde_json::to_string(&Response::GameUpdate(GameUpdateData {
+                    scores: scores.clone(),
+                }))
+                .unwrap(),
+            ),
+        )
+        .await
+    }
+}
+
 async fn send_random_emote_to_room(app_data: &mut AppDataSync, room_id: RoomID) {
     let users = {
         let game_states = app_data.game_states.read().await;
@@ -301,6 +335,7 @@ pub async fn handle_submit_guess(mut app_data: AppDataSync, user_id: User, data:
 
     if scored_increase {
         send_random_emote(&mut app_data, user_id.clone(), data.room_id.clone()).await;
+        inform_room_game_state(&mut app_data, data.room_id.clone()).await;
     }
 }
 

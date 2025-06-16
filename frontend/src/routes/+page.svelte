@@ -109,5 +109,6 @@
     {onTyping}
     score={gameState.score}
     {skip}
+    scores={gameState.scores}
   ></GameScreen>
 {/if}

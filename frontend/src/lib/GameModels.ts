@@ -70,5 +70,10 @@ export type GameOverResponse = {
   // }
 };
 
-export type ResponsesCommands = "new_user" | "room_join" | "emote" | "guess_response" | "game_started" | "game_over";
-export type Response = NewUserResponse | RoomJoinResponse | EmoteDataResponse | GuessDataResponse | GameStartedResponse | GameOverResponse;
+export type GameUpdateResponse = {
+  command: "game_update",
+  scores: { [uid: string]: number }[]
+}
+
+export type ResponsesCommands = "new_user" | "room_join" | "emote" | "guess_response" | "game_started" | "game_over" | "game_update";
+export type Response = NewUserResponse | RoomJoinResponse | EmoteDataResponse | GuessDataResponse | GameStartedResponse | GameOverResponse | GameUpdateResponse;
