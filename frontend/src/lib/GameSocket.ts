@@ -20,7 +20,7 @@ export class GameSocket {
   authenticate(session_token: string) {
     this.send({
       jwt: session_token
-    })
+    });
   }
 
   public addEventListener(event: ResponsesCommands, fn: (response: Response) => void) {
@@ -42,7 +42,7 @@ export class GameSocket {
 
   onMessage(ev: MessageEvent) {
     const data = JSON.parse(ev.data) as Response;
-    this.dispatchMap.get(data.command)?.forEach(fn => fn(data));
+    this.dispatchMap.get(data.command)?.forEach((fn) => fn(data));
   }
 
   onConnect() {
@@ -57,6 +57,6 @@ export class GameSocket {
   }
 
   onError(ev: Event) {
-    console.error(ev)
+    console.error(ev);
   }
 }

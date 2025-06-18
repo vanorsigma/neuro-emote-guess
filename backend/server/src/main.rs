@@ -5,7 +5,10 @@ use std::{collections::HashMap, convert::Infallible, ops::Deref, str::FromStr, s
 use backend::{
     data::{AppData, AppDataSync, GameState, RoomID, User},
     jwt::{JWTClaim, JWTClaimError},
-    models::requests::{AuthenticateData, Request},
+    models::{
+        requests::{AuthenticateData, Request},
+        responses::{ErrorData, ErrorDataType, Response},
+    },
     twitch::TwitchUserResponse,
 };
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
@@ -22,7 +25,10 @@ use tokio::{
     pin,
     sync::{RwLock, mpsc},
 };
-use warp::{Filter, filters::ws::Ws};
+use warp::{
+    Filter,
+    filters::ws::{Message, Ws},
+};
 use warp::{reply::Reply, ws::WebSocket};
 
 // TODO: read from environment
@@ -123,10 +129,11 @@ async fn handle_authenticate_websocket(
                 Ok(r) => return Some(r),
                 Err(e) => {
                     tracing::error!("websocket error {e}");
-                    continue;
+                    return None;
                 }
             },
             Err(e) => {
+                // probably an unrecognized message
                 tracing::error!("websocket error {e}");
                 continue;
             }
@@ -141,6 +148,15 @@ async fn handle_upgrade(app_data: AppDataSync, mut ws: WebSocket) {
         Some(c) => c,
         None => {
             tracing::warn!("Connection did not authenticate on time, return");
+            let _ = ws
+                .send(Message::text(
+                    serde_json::to_string(&Response::Error(ErrorData {
+                        error_type: ErrorDataType::AuthFailed,
+                        error_msg: "Authentication failed, need to reauth".to_string(),
+                    }))
+                    .expect("can create error struct for json"),
+                ))
+                .await;
             return;
         }
     };

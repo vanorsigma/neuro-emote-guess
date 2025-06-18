@@ -5,10 +5,10 @@ export const gameState = $state({
   room_id: '',
   currentEmote: {
     matched_chars: '',
-    url: '',
+    url: ''
   },
   guess: '',
   score: 0,
-  scores: ([] as unknown as [string, number][]),
-  expectedDuration: 100,
+  scores: [] as unknown as [string, number][],
+  expectedDuration: 100
 });

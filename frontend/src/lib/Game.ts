@@ -1,6 +1,15 @@
-import { GameSocket } from "$lib/GameSocket";
-import { gameState } from "$lib/GameState.svelte";
-import type { EmoteDataResponse, GameOverResponse, GameUpdateResponse, GuessDataResponse, NewUserResponse, Response, RoomJoinResponse } from "$lib/GameModels";
+import { GameSocket } from '$lib/GameSocket';
+import { gameState } from '$lib/GameState.svelte';
+import type {
+  EmoteDataResponse,
+  ErrorResponse,
+  GameOverResponse,
+  GameUpdateResponse,
+  GuessDataResponse,
+  NewUserResponse,
+  Response,
+  RoomJoinResponse
+} from '$lib/GameModels';
 
 export class Game {
   private ws: GameSocket;
@@ -12,7 +21,7 @@ export class Game {
     }
 
     this.ws.send({
-      command: "create_room",
+      command: 'create_room'
     });
   }
 
@@ -22,16 +31,15 @@ export class Game {
       return;
     }
 
-
     if (!gameState.room_id) {
       console.warn('RoomId is undefined, cannot carry on');
       return;
     }
 
     this.ws.send({
-      command: "start_game",
-      room_id: gameState.room_id,
-    })
+      command: 'start_game',
+      room_id: gameState.room_id
+    });
   }
 
   public joinGame(room_id: string) {
@@ -41,9 +49,9 @@ export class Game {
     }
 
     this.ws.send({
-      command: "join_room",
+      command: 'join_room',
       room_id
-    })
+    });
   }
 
   public submitGuess(guess: string) {
@@ -52,17 +60,16 @@ export class Game {
       return;
     }
 
-
     if (!gameState.room_id) {
       console.warn('RoomId is undefined, cannot carry on');
       return;
     }
 
     this.ws.send({
-      command: "submit_guess",
+      command: 'submit_guess',
       room_id: gameState.room_id,
       guess
-    })
+    });
   }
 
   public skip() {
@@ -71,14 +78,13 @@ export class Game {
       return;
     }
 
-
     if (!gameState.room_id) {
       console.warn('RoomId is undefined, cannot carry on');
       return;
     }
 
     this.ws.send({
-      command: "skip",
+      command: 'skip',
       room_id: gameState.room_id
     });
   }
@@ -89,17 +95,16 @@ export class Game {
       return;
     }
 
-
     if (!gameState.room_id) {
       console.warn('RoomId is undefined, cannot carry on');
       return;
     }
 
     this.ws.send({
-      command: "edit_room",
+      command: 'edit_room',
       game_duration: gameState.expectedDuration,
-      room_id: gameState.room_id,
-    })
+      room_id: gameState.room_id
+    });
   }
 
   constructor(uri: string, session_token: string) {
@@ -110,6 +115,20 @@ export class Game {
     this.ws.addEventListener('game_over', this.onGameOver.bind(this));
     this.ws.addEventListener('guess_response', this.onGuessResponse.bind(this));
     this.ws.addEventListener('game_update', this.onGameUpdate.bind(this));
+    this.ws.addEventListener('error', this.onError.bind(this));
+  }
+
+  onError(response: Response) {
+    const typedresponse = response as ErrorResponse;
+    switch (typedresponse.error_type) {
+      case 'auth_failed':
+        window.history.pushState({}, '', '/login');
+        window.location.href = '/login';
+        return;
+
+      default:
+        console.error('unknown server error', typedresponse.error_type);
+    }
   }
 
   onNewUser(response: Response) {
@@ -135,7 +154,7 @@ export class Game {
 
   onGameOver(response: Response) {
     // const _typedresponse = response as GameOverResponse;
-    console.log('game over')
+    console.log('game over');
     gameState.started = false;
   }
 

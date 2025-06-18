@@ -5,6 +5,18 @@ use serde::Serialize;
 use crate::{data::{RoomID, User}, seventv::FinalEmote};
 
 #[derive(Serialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorDataType {
+    AuthFailed,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ErrorData {
+    pub error_type: ErrorDataType,
+    pub error_msg: String
+}
+
+#[derive(Serialize, Debug)]
 pub struct EmoteResponse {
     pub matched_chars: String,
     pub url: String,
@@ -52,4 +64,5 @@ pub enum Response {
     GameStarted,
     GameOver(GameOverData),
     GameUpdate(GameUpdateData),
+    Error(ErrorData),
 }

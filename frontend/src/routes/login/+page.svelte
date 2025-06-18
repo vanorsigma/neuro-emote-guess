@@ -70,6 +70,9 @@
       } else {
         document.cookie = `session_token=${response_as_json}; SameSite=strict; Secure`;
       }
+
+      window.history.pushState({}, '', '/');
+      window.location.href = '/';
     } catch (e) {
       console.warn('Error when posting token', e);
     }
