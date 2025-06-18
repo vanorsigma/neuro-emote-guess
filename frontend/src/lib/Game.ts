@@ -111,6 +111,8 @@ export class Game {
     gameState.scores = [];
     gameState.score = 0;
     gameState.started = GameStateIdentifier.ROOM_CONFIG;
+
+    this.joinGame(gameState.room_id);
   }
 
   constructor(uri: string, session_token: string) {
@@ -127,13 +129,13 @@ export class Game {
   onError(response: Response) {
     const typedresponse = response as ErrorResponse;
     switch (typedresponse.error_type) {
-    case 'auth_failed':
-      window.history.pushState({}, '', '/login');
-      window.location.href = '/login';
-      return;
+      case 'auth_failed':
+        window.history.pushState({}, '', '/login');
+        window.location.href = '/login';
+        return;
 
-    default:
-      console.error('unknown server error', typedresponse.error_type);
+      default:
+        console.error('unknown server error', typedresponse.error_type);
     }
   }
 
@@ -159,9 +161,10 @@ export class Game {
   }
 
   onGameOver(response: Response) {
-    // const _typedresponse = response as GameOverResponse;
-    console.log('game over');
+    const typedresponse = response as GameOverResponse;
     gameState.started = GameStateIdentifier.GAME_OVER;
+    gameState.room_id = typedresponse.new_room_id;
+    console.log('game over, new id', typedresponse.new_room_id);
   }
 
   onGameUpdate(response: Response) {

@@ -44,14 +44,12 @@ pub async fn reply_to_user(user_map: &mut HashMap<User, UserData>, user: User, m
     };
 }
 
-/// Room Handlers
-
-pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
+async fn create_room(app_data: &AppDataSync, user_id: User) -> Option<RoomID> {
     let uuid = Uuid::new_v4();
     let seed: u64 = rand::random();
 
     if !is_user_exists(&app_data, user_id.clone()).await {
-        return;
+        return None;
     }
 
     let mut game_states = app_data.game_states.write().await;
@@ -65,15 +63,23 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
         ),
     );
 
+    Some(RoomID(uuid.to_string()))
+}
+
+/// Room Handlers
+
+pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
+    let room_id = match create_room(&app_data, user_id.clone()).await {
+        Some(r) => r,
+        None => return,
+    };
+
     // TODO: fix this
     reply_to_user(
         &mut (*app_data.users.write().await),
         user_id,
         Message::text(
-            serde_json::to_string(&Response::RoomJoin(RoomJoinData {
-                room_id: RoomID(uuid.to_string()),
-            }))
-            .unwrap(),
+            serde_json::to_string(&Response::RoomJoin(RoomJoinData { room_id })).unwrap(),
         ),
     )
     .await
@@ -115,7 +121,7 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
 
     game_state
         .user_data
-        .insert(user_id.clone(), Default::default());
+        .try_insert(user_id.clone(), Default::default());
     reply_to_user(
         &mut (*app_data.users.write().await),
         user_id,
@@ -226,22 +232,47 @@ async fn send_random_emote_to_room(app_data: &mut AppDataSync, room_id: RoomID) 
 
 async fn handle_game_end(mut app_data: AppDataSync, room_id: RoomID) {
     // inform every user in the room that the game has ended
-    let mut game_states = app_data.game_states.write().await;
-    let game_state = match game_states.get_mut(&room_id) {
-        Some(gs) => gs,
-        None => return,
+    let (room_owner, users) = {
+        let mut game_states = app_data.game_states.write().await;
+        let game_state = match game_states.get_mut(&room_id) {
+            Some(gs) => gs,
+            None => return,
+        };
+
+        // TODO: in theory, we should handle score calculation here as well
+        // let user_data_map = app_data.users.write().await;
+        let room_owner = game_state.room_owner.clone();
+        let users = game_state.user_data.keys().cloned().collect::<Vec<_>>();
+        (room_owner, users)
     };
 
-    // TODO: in theory, we should handle score calculation here as well
+    tracing::debug!("Lock released");
 
-    let involved_users = game_state.user_data.keys();
-    // let user_data_map = app_data.users.write().await;
+    {
+        let mut game_states = app_data.game_states.write().await;
+        game_states.remove(&room_id);
+    }
 
-    for user in involved_users {
+    tracing::debug!("Lock released again");
+
+    let room_id = match create_room(&app_data, room_owner).await {
+        Some(r) => r,
+        None => {
+            tracing::error!("cannot create room while game over");
+            return;
+        }
+    };
+
+    for user in users {
         reply_to_user(
             &mut (*app_data.users.write().await),
             user.clone(),
-            Message::text(serde_json::to_string(&Response::GameOver(GameOverData {})).unwrap()),
+            Message::text(
+                serde_json::to_string(&Response::GameOver(GameOverData {
+                    new_room_id: room_id.clone(),
+                }))
+                .unwrap(),
+            ),
         )
         .await
     }

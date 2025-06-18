@@ -1,3 +1,4 @@
+#![feature(map_try_insert)]
 mod handler;
 
 use std::{collections::HashMap, convert::Infallible, ops::Deref, str::FromStr, sync::Arc};
