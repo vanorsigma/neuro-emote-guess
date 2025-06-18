@@ -95,7 +95,7 @@
   <h1 class="center text-4xl font-bold">Scoreboard</h1>
   <ul>
     {#each scores as [player, score] (player)}
-      <li>{player}: {score}</li>
+      <li>{player}: {score.toFixed(1)}</li>
     {/each}
   </ul>
 </div>

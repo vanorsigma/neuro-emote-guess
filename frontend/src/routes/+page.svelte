@@ -1,8 +1,9 @@
 <script lang="ts">
   import UserList from '$lib/UserList.svelte';
-  import { gameState } from '$lib/GameState.svelte';
+  import { gameState, GameStateIdentifier } from '$lib/GameState.svelte';
   import { Game } from '$lib/Game';
   import GameScreen from './GameScreen.svelte';
+  import GameOver from './GameOver.svelte';
 
   let game = new Game('ws://127.0.0.1:3030/ws', getSessionTokenOrRedirect());
 
@@ -36,6 +37,10 @@
     game.submitGuess(gameState.guess.padEnd(gameState.currentEmote.matched_chars.length, 'ඬ'));
   }
 
+  function toMenu() {
+    game.resetState();
+  }
+
   function onTyping() {
     gameState.display_wrong = false;
   }
@@ -52,7 +57,7 @@
   });
 </script>
 
-{#if !gameState.started}
+{#if gameState.started === GameStateIdentifier.ROOM_CONFIG}
   <h1 class="text-3xl font-bold underline">Welcome to my epic game xdxing</h1>
   <div>
     <label for="room_id" class="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
@@ -68,33 +73,15 @@
   </div>
 
   <div>
-    <button
-      type="button"
-      class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
-    text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
-    dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-      onclick={joinGame}>Join</button
-    >
+    <button type="button" onclick={joinGame}>Join</button>
   </div>
 
   <div>
-    <button
-      type="button"
-      class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
-    text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
-    dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-      onclick={onGenerateRoom}>Generate Room ID</button
-    >
+    <button type="button" onclick={onGenerateRoom}>Generate Room ID</button>
   </div>
 
   <div>
-    <button
-      type="button"
-      class="w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium
-    text-white hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 focus:outline-none sm:w-auto
-    dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-      onclick={startGame}>Start</button
-    >
+    <button type="button" onclick={startGame}>Start</button>
   </div>
 
   <div>
@@ -114,7 +101,7 @@
   </div>
 {/if}
 
-{#if gameState.started}
+{#if gameState.started === GameStateIdentifier.STARTED}
   <GameScreen
     room_id={gameState.room_id}
     emote={gameState.currentEmote}
@@ -126,4 +113,8 @@
     {skip}
     scores={gameState.scores}
   ></GameScreen>
+{/if}
+
+{#if gameState.started === GameStateIdentifier.GAME_OVER}
+  <GameOver room_id={gameState.room_id} scores={gameState.scores} onMenu={toMenu}></GameOver>
 {/if}

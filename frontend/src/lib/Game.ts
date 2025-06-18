@@ -1,5 +1,5 @@
 import { GameSocket } from '$lib/GameSocket';
-import { gameState } from '$lib/GameState.svelte';
+import { gameState, GameStateIdentifier } from '$lib/GameState.svelte';
 import type {
   EmoteDataResponse,
   ErrorResponse,
@@ -107,6 +107,12 @@ export class Game {
     });
   }
 
+  public resetState() {
+    gameState.scores = [];
+    gameState.score = 0;
+    gameState.started = GameStateIdentifier.ROOM_CONFIG;
+  }
+
   constructor(uri: string, session_token: string) {
     this.ws = new GameSocket(uri, session_token);
     this.ws.addEventListener('new_user', this.onNewUser.bind(this));
@@ -121,13 +127,13 @@ export class Game {
   onError(response: Response) {
     const typedresponse = response as ErrorResponse;
     switch (typedresponse.error_type) {
-      case 'auth_failed':
-        window.history.pushState({}, '', '/login');
-        window.location.href = '/login';
-        return;
+    case 'auth_failed':
+      window.history.pushState({}, '', '/login');
+      window.location.href = '/login';
+      return;
 
-      default:
-        console.error('unknown server error', typedresponse.error_type);
+    default:
+      console.error('unknown server error', typedresponse.error_type);
     }
   }
 
@@ -144,7 +150,7 @@ export class Game {
   onEmote(response: Response) {
     const typedresponse = response as EmoteDataResponse;
     if (!gameState.started) {
-      gameState.started = true;
+      gameState.started = GameStateIdentifier.STARTED;
       gameState.score = 0;
     }
 
@@ -155,7 +161,7 @@ export class Game {
   onGameOver(response: Response) {
     // const _typedresponse = response as GameOverResponse;
     console.log('game over');
-    gameState.started = false;
+    gameState.started = GameStateIdentifier.GAME_OVER;
   }
 
   onGameUpdate(response: Response) {
