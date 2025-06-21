@@ -59,6 +59,7 @@ export type NewUserResponse = {
 export type RoomJoinResponse = {
   command: 'room_join';
   room_id: string;
+  player_list: string[];
 };
 
 export type EmoteDataResponse = {

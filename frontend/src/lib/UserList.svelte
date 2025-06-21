@@ -4,7 +4,7 @@
 
 <h2 class="text-xl">Player List</h2>
 <ul class="list-decimal">
-  {#each usernames as username (username)}
+  {#each usernames as username, idx (username + idx)}
     <li>{username}</li>
   {/each}
 </ul>

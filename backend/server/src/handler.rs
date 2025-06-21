@@ -74,12 +74,29 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
         None => return,
     };
 
+    let user_login = {
+        let users = app_data.users.read().await;
+        let data = match users.get(&user_id) {
+            Some(user) => user,
+            None => {
+                tracing::warn!("Cannot find entry for user id: {}", user_id.0);
+                return;
+            }
+        };
+
+        data.claim.data.login.clone()
+    };
+
     // TODO: fix this
     reply_to_user(
         &mut (*app_data.users.write().await),
-        user_id,
+        user_id.clone(),
         Message::text(
-            serde_json::to_string(&Response::RoomJoin(RoomJoinData { room_id })).unwrap(),
+            serde_json::to_string(&Response::RoomJoin(RoomJoinData {
+                room_id,
+                player_list: vec![user_login],
+            }))
+            .unwrap(),
         ),
     )
     .await
@@ -121,18 +138,35 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
 
     game_state
         .user_data
-        .try_insert(user_id.clone(), Default::default());
-    reply_to_user(
-        &mut (*app_data.users.write().await),
-        user_id,
-        Message::text(
-            serde_json::to_string(&Response::RoomJoin(RoomJoinData {
-                room_id: data.room_id,
-            }))
-            .unwrap(),
-        ),
-    )
-    .await;
+        .try_insert(user_id.clone(), Default::default())
+        .unwrap();
+
+    let users = game_state.user_data.keys().cloned().collect::<Vec<_>>();
+    let usernames = {
+        let user_states = app_data.users.read().await;
+        users
+            .iter()
+            .flat_map(|user| match user_states.get(user) {
+                Some(u) => Some(u.claim.data.login.clone()),
+                None => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    for user in &users {
+        reply_to_user(
+            &mut (*app_data.users.write().await),
+            user.clone(),
+            Message::text(
+                serde_json::to_string(&Response::RoomJoin(RoomJoinData {
+                    room_id: data.room_id.clone(),
+                    player_list: usernames.clone(),
+                }))
+                .unwrap(),
+            ),
+        )
+        .await;
+    }
 }
 
 fn choose_random_emote(emote: &Vec<FinalEmote>, seed: u64, emote_index: u32) -> FinalEmote {

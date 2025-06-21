@@ -129,13 +129,13 @@ export class Game {
   onError(response: Response) {
     const typedresponse = response as ErrorResponse;
     switch (typedresponse.error_type) {
-      case 'auth_failed':
-        window.history.pushState({}, '', '/login');
-        window.location.href = '/login';
-        return;
+    case 'auth_failed':
+      window.history.pushState({}, '', '/login');
+      window.location.href = '/login';
+      return;
 
-      default:
-        console.error('unknown server error', typedresponse.error_type);
+    default:
+      console.error('unknown server error', typedresponse.error_type);
     }
   }
 
@@ -147,6 +147,7 @@ export class Game {
   onRoomJoin(response: Response) {
     const typedresponse = response as RoomJoinResponse;
     gameState.room_id = typedresponse.room_id;
+    gameState.scores = typedresponse.player_list.map(user_id => [user_id, 0]);
   }
 
   onEmote(response: Response) {

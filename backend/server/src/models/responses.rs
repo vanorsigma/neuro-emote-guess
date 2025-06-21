@@ -30,6 +30,9 @@ pub struct NewUserData {
 #[derive(Serialize, Debug)]
 pub struct RoomJoinData {
     pub room_id: RoomID,
+
+    /// Player list is a vector of usernames
+    pub player_list: Vec<String>
 }
 
 #[derive(Serialize, Debug)]
