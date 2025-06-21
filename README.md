@@ -28,11 +28,19 @@ Server -> Client:
 Todo:
 - Need to send "current user ID" as well
 
-- [ ] Why does startup take forever?
-- [ ] Should not send names to the client
-- [ ] Backend should determine if `joingame` succeeded (i.e. client should make no decisions without the backend)
+- [X] Why does startup take forever?
+- [X] Should not send names to the client
+- [X] Backend should determine if `joingame` succeeded (i.e. client should make no decisions without the backend)
 - [X] Refactor joining page to its own component
-- [ ] Address TODOs in the code
-- [ ] Use a mutable hashmap so that other users are not affected by a single user submitting a guess
 - [X] Game end
 - [X] Restrict input to exclude '?'
+- [ ] Make URLS be env variables
+- [ ] Address TODOs in the code
+- [ ] Use a mutable hashmap so that other users are not affected by a single user submitting a guess
+- [ ] If the emote name is too long, need to flex the boxes
+- [ ] Editing room needs to reflect for other players
+- [ ] Need security against copy & paste
+- [ ] Need timer in frontend
+- [ ] Player list does not refresh immediately on restart
+- [ ] Restarting is broken
+- [ ] Changing duration of the game is broken
