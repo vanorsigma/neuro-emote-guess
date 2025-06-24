@@ -31,10 +31,27 @@ const CORRECT_SCORE: f32 = 1.0;
 const INCORRECT_SCORE: f32 = -0.2;
 const SKIP_SCORE: f32 = -0.1;
 
-/// Utilities
+/// Utilities (No WebSocket contact)
 
 pub async fn is_user_exists(app_data: &AppData, user: User) -> bool {
     app_data.users.read().await.contains_key(&user)
+}
+
+pub async fn is_room_exists(app_data: &AppData, room_id: RoomID) -> bool {
+    let game_states = app_data.game_states.read().await;
+    game_states.get(&room_id).is_some()
+}
+
+pub async fn is_user_in_room(game_state: &GameState, user: User) -> bool {
+    if let Some(_) = game_state.user_data.keys().filter(|u| **u == user).last() {
+        true
+    } else {
+        false
+    }
+}
+
+pub async fn is_user_owner_of_room(game_state: &GameState, user: User) -> bool {
+    game_state.room_owner == user
 }
 
 pub async fn reply_to_user(user_map: &mut HashMap<User, UserData>, user: User, message: Message) {
@@ -66,6 +83,77 @@ async fn create_room(app_data: &AppDataSync, user_id: User) -> Option<RoomID> {
     Some(RoomID(uuid.to_string()))
 }
 
+/// Utilities (With websocket contact)
+
+async fn leave_all_rooms(app_data: &AppDataSync, user_id: User) {
+    if !is_user_exists(&app_data, user_id.clone()).await {
+        return;
+    }
+
+    let mut rooms_to_kill = vec![];
+    let mut rooms_to_leave = vec![];
+    {
+        let game_states = app_data.game_states.read().await;
+        for game_state in game_states.values() {
+            if is_user_owner_of_room(game_state, user_id.clone()).await {
+                for user in game_state.user_data.keys() {
+                    reply_to_user(
+                        &mut (*app_data.users.write().await),
+                        user.clone(),
+                        Message::text(
+                            serde_json::to_string(&Response::Error(
+                                backend::models::responses::ErrorData {
+                                    error_type:
+                                        backend::models::responses::ErrorDataType::RoomDisbanded,
+                                    error_msg: "room owner left room".to_string(),
+                                },
+                            ))
+                            .unwrap(),
+                        ),
+                    )
+                    .await
+                }
+                rooms_to_kill.push(game_state.room_id.clone());
+            } else if is_user_in_room(game_state, user_id.clone()).await {
+                for user in game_state.user_data.keys() {
+                    reply_to_user(
+                        &mut (*app_data.users.write().await),
+                        user.clone(),
+                        Message::text(
+                            serde_json::to_string(&Response::RoomJoin(RoomJoinData {
+                                room_id: game_state.room_id.clone(),
+                                is_owner: game_state.room_owner == *user,
+                                player_list: game_state
+                                    .user_data
+                                    .keys()
+                                    .cloned()
+                                    .map(|p| p.0)
+                                    .collect(),
+                            }))
+                            .unwrap(),
+                        ),
+                    )
+                    .await
+                }
+                rooms_to_leave.push(game_state.room_id.clone())
+            }
+        }
+    }
+
+    let mut game_states = app_data.game_states.write().await;
+    for room_id in rooms_to_kill {
+        game_states.remove(&room_id);
+    }
+
+    for room_id in rooms_to_leave {
+        game_states
+            .get_mut(&room_id)
+            .unwrap()
+            .user_data
+            .remove(&user_id.clone());
+    }
+}
+
 /// Room Handlers
 
 pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
@@ -94,6 +182,7 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
         Message::text(
             serde_json::to_string(&Response::RoomJoin(RoomJoinData {
                 room_id,
+                is_owner: true,
                 player_list: vec![user_login],
             }))
             .unwrap(),
@@ -130,16 +219,41 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
         return;
     }
 
+    if !is_room_exists(&app_data, data.room_id.clone()).await {
+        reply_to_user(
+            &mut (*app_data.users.write().await),
+            user_id,
+            Message::text(
+                serde_json::to_string(&Response::Error(backend::models::responses::ErrorData {
+                    error_type: backend::models::responses::ErrorDataType::RoomJoinFailed,
+                    error_msg: "Room does not exist".to_string(),
+                }))
+                .unwrap(),
+            ),
+        )
+        .await;
+        return;
+    }
+
+    leave_all_rooms(&app_data, user_id.clone()).await;
+
     let mut game_states = app_data.game_states.write().await;
     let game_state = match game_states.get_mut(&data.room_id) {
         Some(gs) => gs,
-        None => return,
+        None => {
+            tracing::warn!(
+                "Cannot get game state after checking with is_room_exists, probably a async desync"
+            );
+            return;
+        }
     };
 
     game_state
         .user_data
         .try_insert(user_id.clone(), Default::default())
         .unwrap();
+
+    let owner = game_state.room_owner.clone();
 
     let users = game_state.user_data.keys().cloned().collect::<Vec<_>>();
     let usernames = {
@@ -160,6 +274,7 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
             Message::text(
                 serde_json::to_string(&Response::RoomJoin(RoomJoinData {
                     room_id: data.room_id.clone(),
+                    is_owner: *user == owner,
                     player_list: usernames.clone(),
                 }))
                 .unwrap(),

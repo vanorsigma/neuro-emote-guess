@@ -3,11 +3,15 @@ import { type Request, type Response, type ResponsesCommands } from '$lib/GameMo
 export class GameSocket {
   private ws: WebSocket;
   private dispatchMap: Map<ResponsesCommands, Array<(response: Response) => void>>;
+  private onConnectCallbacks: Array<() => void>;
+  private onDisconnectCallbacks: Array<() => void>;
   private backlog: Array<string>;
 
   constructor(uri: string, session_token: string) {
     this.ws = new WebSocket(uri);
     this.dispatchMap = new Map();
+    this.onConnectCallbacks = [];
+    this.onDisconnectCallbacks = [];
     this.backlog = [];
 
     this.authenticate(session_token);
@@ -30,6 +34,19 @@ export class GameSocket {
     this.dispatchMap.get(event)?.push(fn);
   }
 
+  public addConnectionStatusListener(event: 'connect' | 'disconnect', fn: () => void) {
+    switch (event) {
+      case 'connect':
+        this.onConnectCallbacks.push(fn);
+        return;
+      case 'disconnect':
+        this.onDisconnectCallbacks.push(fn);
+        return;
+      default:
+        console.warn('idk what you are even doing shaking my head');
+    }
+  }
+
   public send(request: Request) {
     const data = JSON.stringify(request);
     console.log(data);
@@ -50,10 +67,11 @@ export class GameSocket {
       this.ws.send(message);
     }
     this.backlog = [];
+    this.onConnectCallbacks.forEach(fn => fn())
   }
 
   onDisconnect() {
-    console.log('disconnected');
+    this.onDisconnectCallbacks.forEach(fn => fn())
   }
 
   onError(ev: Event) {

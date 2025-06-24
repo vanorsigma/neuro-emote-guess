@@ -4,4 +4,8 @@
   let { children } = $props();
 </script>
 
-{@render children()}
+<main class="align-center align-items align-center flex w-full content-center justify-center">
+  <div class="w-[90%]">
+    {@render children()}
+  </div>
+</main>

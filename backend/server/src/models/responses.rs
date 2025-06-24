@@ -8,6 +8,8 @@ use crate::{data::{RoomID, User}, seventv::FinalEmote};
 #[serde(rename_all = "snake_case")]
 pub enum ErrorDataType {
     AuthFailed,
+    RoomJoinFailed,
+    RoomDisbanded,
 }
 
 #[derive(Serialize, Debug)]
@@ -27,9 +29,11 @@ pub struct NewUserData {
     pub user_id: User,
 }
 
+// TODO: update this to say RoomUpdateData, because that's what it is
 #[derive(Serialize, Debug)]
 pub struct RoomJoinData {
     pub room_id: RoomID,
+    pub is_owner: bool,
 
     /// Player list is a vector of usernames
     pub player_list: Vec<String>

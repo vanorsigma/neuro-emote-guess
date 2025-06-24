@@ -94,7 +94,7 @@
 <div class="flex flex-col items-center gap-2">
   <h1 class="center text-4xl font-bold">Scoreboard</h1>
   <ul>
-    {#each scores as [player, score] (player)}
+    {#each scores as [player, score], idx (player + idx)}
       <li>{player}: {score.toFixed(1)}</li>
     {/each}
   </ul>

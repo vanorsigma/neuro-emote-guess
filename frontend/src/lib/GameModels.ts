@@ -59,6 +59,7 @@ export type NewUserResponse = {
 export type RoomJoinResponse = {
   command: 'room_join';
   room_id: string;
+  is_owner: boolean;
   player_list: string[];
 };
 
@@ -113,4 +114,4 @@ export type Response =
   | GameUpdateResponse
   | ErrorResponse;
 
-export type ErrorTypes = 'auth_failed';
+export type ErrorTypes = 'auth_failed' | 'room_join_failed' | 'room_disbanded';

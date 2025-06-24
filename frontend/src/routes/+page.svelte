@@ -52,22 +52,27 @@
   }
 
   $effect(() => {
-    if (!gameState.started) {
+    if (gameState.started !== GameStateIdentifier.STARTED) {
       game.editGame();
       return;
     }
   });
 </script>
 
-{#if gameState.started === GameStateIdentifier.ROOM_CONFIG}
-  <RoomScreen
-    bind:room_id={gameState.room_id}
-    {joinGame}
-    {onGenerateRoom}
-    {startGame}
-    expectedDuration={gameState.expectedDuration}
-    {usernames}
-  ></RoomScreen>
+{#if gameState.started === GameStateIdentifier.ROOM_CONFIG || gameState.started === GameStateIdentifier.ROOM_INIT}
+  {#key gameState.room_id}
+    <RoomScreen
+      bind:room_id={gameState.room_id}
+      {joinGame}
+      {onGenerateRoom}
+      {startGame}
+      bind:expectedDuration={gameState.expectedDuration}
+      {usernames}
+      room_owner={gameState.is_owner}
+      disabled={!gameState.connected}
+      joinedRoom={gameState.started === GameStateIdentifier.ROOM_CONFIG}
+    ></RoomScreen>
+  {/key}
 {/if}
 
 {#if gameState.started === GameStateIdentifier.STARTED}
@@ -87,3 +92,13 @@
 {#if gameState.started === GameStateIdentifier.GAME_OVER}
   <GameOver room_id={gameState.room_id} scores={gameState.scores} onMenu={toMenu}></GameOver>
 {/if}
+
+<footer class="center">
+  <p>
+    Status: <span
+      class:text-green-600={gameState.connected}
+      class:text-red-600={!gameState.connected}
+      >{gameState.connected ? 'Connected' : 'Disconnected'}</span
+    >
+  </p>
+</footer>

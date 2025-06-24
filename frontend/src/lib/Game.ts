@@ -124,18 +124,36 @@ export class Game {
     this.ws.addEventListener('guess_response', this.onGuessResponse.bind(this));
     this.ws.addEventListener('game_update', this.onGameUpdate.bind(this));
     this.ws.addEventListener('error', this.onError.bind(this));
+
+    this.ws.addConnectionStatusListener('connect', () => {
+      gameState.connected = true;
+    })
+
+    this.ws.addConnectionStatusListener('disconnect', () => {
+      gameState.connected = false;
+    })
   }
 
   onError(response: Response) {
     const typedresponse = response as ErrorResponse;
     switch (typedresponse.error_type) {
-    case 'auth_failed':
-      window.history.pushState({}, '', '/login');
-      window.location.href = '/login';
-      return;
+      case 'auth_failed':
+        window.history.pushState({}, '', '/login');
+        window.location.href = '/login';
+        return;
 
-    default:
-      console.error('unknown server error', typedresponse.error_type);
+      case 'room_join_failed':
+        window.alert('Cannot join room, room ID invalid');
+        return;
+
+      case 'room_disbanded':
+        window.alert('Room disbanded');
+        gameState.started = GameStateIdentifier.ROOM_INIT;
+        gameState.room_id = '';
+        return;
+
+      default:
+        console.error('unknown server error', typedresponse.error_type);
     }
   }
 
@@ -146,13 +164,15 @@ export class Game {
 
   onRoomJoin(response: Response) {
     const typedresponse = response as RoomJoinResponse;
+    gameState.started = GameStateIdentifier.ROOM_CONFIG;
     gameState.room_id = typedresponse.room_id;
     gameState.scores = typedresponse.player_list.map(user_id => [user_id, 0]);
+    gameState.is_owner = typedresponse.is_owner;
   }
 
   onEmote(response: Response) {
     const typedresponse = response as EmoteDataResponse;
-    if (!gameState.started) {
+    if (gameState.started === GameStateIdentifier.ROOM_CONFIG) {
       gameState.started = GameStateIdentifier.STARTED;
       gameState.score = 0;
     }
