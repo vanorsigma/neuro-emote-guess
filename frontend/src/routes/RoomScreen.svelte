@@ -33,7 +33,7 @@
   }
 </script>
 
-<h1 class="text-3xl font-bold underline">Welcome to my epic game xdxing</h1>
+<h1 class="text-3xl font-bold">Room Setup</h1>
 <div>
   <label for="room_id" class="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
     >Room ID</label
@@ -48,17 +48,11 @@
   />
 </div>
 
-<div>
+<div class="flex flex-row justify-end gap-5">
   <button type="button" onclick={localJoinGame} disabled={disabled || room_id == local_room_id}
     >Join</button
   >
-</div>
-
-<div>
   <button type="button" onclick={onGenerateRoom} {disabled}>Generate Room ID</button>
-</div>
-
-<div>
   <button type="button" onclick={startGame} disabled={!room_owner || disabled}>Start</button>
 </div>
 

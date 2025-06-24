@@ -2,9 +2,11 @@
   export let usernames: string[];
 </script>
 
-<h2 class="text-xl">Player List</h2>
-<ul class="list-decimal">
-  {#each usernames as username, idx (username + idx)}
-    <li>{username}</li>
-  {/each}
-</ul>
+<h2 class="text-2xl">Player List</h2>
+<div class="p-2">
+  <ul>
+    {#each usernames as username, idx (username + idx)}
+      <li>{username}</li>
+    {/each}
+  </ul>
+</div>

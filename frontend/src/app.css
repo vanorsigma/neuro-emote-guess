@@ -14,3 +14,7 @@ button {
 button:disabled {
   @apply bg-gray-400 text-gray-200 cursor-not-allowed;
 }
+
+div {
+  @apply p-3;
+}
