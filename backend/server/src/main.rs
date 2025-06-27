@@ -46,7 +46,7 @@ pub enum TokenSubmissionError {
 }
 
 async fn handle_room(app_data: AppDataSync, current_user: User, request: Request) {
-    tracing::debug!("Incoming: {request:#?}");
+    tracing::debug!("Incoming request {request:#?} from user {current_user:#?}");
     match request {
         Request::CreateRoom => handle_create_room(app_data, current_user).await,
         Request::EditRoom(edit_room_data) => {
@@ -203,6 +203,7 @@ async fn handle_upgrade(app_data: AppDataSync, mut ws: WebSocket) {
 
 #[tokio::main]
 async fn main() {
+    console_subscriber::init();
     env_logger::init();
 
     let key = {

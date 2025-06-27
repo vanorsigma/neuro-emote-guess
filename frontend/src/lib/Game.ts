@@ -137,23 +137,23 @@ export class Game {
   onError(response: Response) {
     const typedresponse = response as ErrorResponse;
     switch (typedresponse.error_type) {
-      case 'auth_failed':
-        window.history.pushState({}, '', '/login');
-        window.location.href = '/login';
-        return;
+    case 'auth_failed':
+      window.history.pushState({}, '', '/login');
+      window.location.href = '/login';
+      return;
 
-      case 'room_join_failed':
-        window.alert('Cannot join room, room ID invalid');
-        return;
+    case 'room_join_failed':
+      window.alert('Cannot join room, room ID invalid');
+      return;
 
-      case 'room_disbanded':
-        window.alert('Room disbanded');
-        gameState.started = GameStateIdentifier.ROOM_INIT;
-        gameState.room_id = '';
-        return;
+    case 'room_disbanded':
+      window.alert('Room disbanded');
+      gameState.started = GameStateIdentifier.ROOM_INIT;
+      gameState.room_id = '';
+      return;
 
-      default:
-        console.error('unknown server error', typedresponse.error_type);
+    default:
+      console.error('unknown server error', typedresponse.error_type);
     }
   }
 
@@ -167,6 +167,7 @@ export class Game {
     gameState.started = GameStateIdentifier.ROOM_CONFIG;
     gameState.room_id = typedresponse.room_id;
     gameState.scores = typedresponse.player_list.map(user_id => [user_id, 0]);
+    gameState.expectedDuration = typedresponse.game_duration;
     gameState.is_owner = typedresponse.is_owner;
   }
 

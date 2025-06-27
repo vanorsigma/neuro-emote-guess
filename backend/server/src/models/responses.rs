@@ -34,6 +34,7 @@ pub struct NewUserData {
 pub struct RoomJoinData {
     pub room_id: RoomID,
     pub is_owner: bool,
+    pub game_duration: u64,
 
     /// Player list is a vector of usernames
     pub player_list: Vec<String>

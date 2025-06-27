@@ -42,6 +42,11 @@ pub async fn is_room_exists(app_data: &AppData, room_id: RoomID) -> bool {
     game_states.get(&room_id).is_some()
 }
 
+pub async fn get_duration_for_room(app_data: &AppData, room_id: &RoomID) -> u64 {
+    let data = app_data.game_states.read().await;
+    data.get(room_id).unwrap().duration.as_secs()
+}
+
 pub async fn is_user_in_room(game_state: &GameState, user: User) -> bool {
     if let Some(_) = game_state.user_data.keys().filter(|u| **u == user).last() {
         true
@@ -123,6 +128,11 @@ async fn leave_all_rooms(app_data: &AppDataSync, user_id: User) {
                             serde_json::to_string(&Response::RoomJoin(RoomJoinData {
                                 room_id: game_state.room_id.clone(),
                                 is_owner: game_state.room_owner == *user,
+                                game_duration: get_duration_for_room(
+                                    &app_data,
+                                    &game_state.room_id.clone(),
+                                )
+                                .await,
                                 player_list: game_state
                                     .user_data
                                     .keys()
@@ -154,6 +164,40 @@ async fn leave_all_rooms(app_data: &AppDataSync, user_id: User) {
     }
 }
 
+/// Requires both locks in app_data
+async fn send_to_room<F, Fut>(app_data: AppDataSync, room_id: &RoomID, filter_fn: F)
+where
+    F: Fn(User) -> Fut,
+    Fut: Future<Output = Message>,
+{
+    let users = {
+        let game_states = app_data.game_states.write().await;
+        let game_state = match game_states.get(room_id) {
+            Some(g) => g,
+            None => {
+                tracing::warn!("Room ID not found");
+                return;
+            }
+        };
+
+        game_state.user_data.keys().cloned().collect::<Vec<_>>()
+    };
+
+    for user in users {
+        let message = filter_fn(user.clone()).await;
+        let mut user_data = app_data.users.write().await;
+        let data = match user_data.get_mut(&user) {
+            Some(d) => d,
+            None => {
+                tracing::warn!("Cannot find user in global user map");
+                continue;
+            }
+        };
+
+        let _ = data.ws.send(message).await;
+    }
+}
+
 /// Room Handlers
 
 pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
@@ -181,8 +225,9 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
         user_id.clone(),
         Message::text(
             serde_json::to_string(&Response::RoomJoin(RoomJoinData {
-                room_id,
+                room_id: room_id.clone(),
                 is_owner: true,
+                game_duration: get_duration_for_room(&app_data, &room_id.clone()).await,
                 player_list: vec![user_login],
             }))
             .unwrap(),
@@ -196,22 +241,56 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
         return;
     }
 
-    let mut game_states = app_data.game_states.write().await;
-    let game_state = match game_states.get_mut(&data.room_id) {
-        Some(gs) => gs,
-        None => {
-            tracing::info!("Edit room attempted on room ID that doesn't exist");
+    let (owner, player_list) = {
+        let mut game_states = app_data.game_states.write().await;
+        let game_state = match game_states.get_mut(&data.room_id) {
+            Some(gs) => gs,
+            None => {
+                tracing::info!("Edit room attempted on room ID that doesn't exist");
+                return;
+            }
+        };
+
+        if !is_user_owner_of_room(game_state, user_id.clone()).await {
             return;
         }
+
+        game_state.duration = tokio::time::Duration::from_secs(data.game_duration);
+        (
+            game_state.room_owner.clone(),
+            game_state.user_data.keys().cloned().collect::<Vec<_>>(),
+        )
     };
 
-    game_state.duration = tokio::time::Duration::from_secs(data.game_duration);
-    // reply_to_user(
-    //     &mut (*app_data.users.write().await),
-    //     user_id,
-    //     Message::text("OK"),
-    // )
-    // .await
+    let usernames = {
+        let users = app_data.users.read().await;
+        player_list
+            .into_iter()
+            .flat_map(|user| users.get(&user))
+            .map(|user_data| user_data.claim.data.login.clone())
+            .collect::<Vec<_>>()
+    };
+
+    let room_id = data.room_id.clone();
+    send_to_room(app_data.clone(), &room_id.clone(), |user| {
+        let owner = owner.clone();
+        let player_list = usernames.clone();
+        let room_id = room_id.clone();
+        let app_data = app_data.clone();
+
+        async move {
+            Message::text(
+                serde_json::to_string(&Response::RoomJoin(RoomJoinData {
+                    room_id: room_id.clone(),
+                    is_owner: user == owner,
+                    game_duration: get_duration_for_room(&app_data, &room_id).await,
+                    player_list,
+                }))
+                .unwrap(),
+            )
+        }
+    })
+    .await;
 }
 
 pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRoomData) {
@@ -235,39 +314,48 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
         return;
     }
 
+    tracing::debug!("Causing {user_id:#?} to leave all rooms");
     leave_all_rooms(&app_data, user_id.clone()).await;
 
-    let mut game_states = app_data.game_states.write().await;
-    let game_state = match game_states.get_mut(&data.room_id) {
-        Some(gs) => gs,
-        None => {
-            tracing::warn!(
-                "Cannot get game state after checking with is_room_exists, probably a async desync"
-            );
-            return;
-        }
-    };
+    let (owner, users, usernames, game_duration) = {
+        let mut game_states = app_data.game_states.write().await;
+        let game_state = match game_states.get_mut(&data.room_id) {
+            Some(gs) => gs,
+            None => {
+                tracing::warn!(
+                    "Cannot get game state after checking with is_room_exists, probably a async desync"
+                );
+                return;
+            }
+        };
 
-    game_state
-        .user_data
-        .try_insert(user_id.clone(), Default::default())
-        .unwrap();
+        tracing::debug!("Causing {user_id:#?} to join room {:#?}", data.room_id);
+        game_state
+            .user_data
+            .try_insert(user_id.clone(), Default::default())
+            .unwrap();
 
-    let owner = game_state.room_owner.clone();
+        tracing::debug!("Room now has {} players", game_state.user_data.len());
+        let owner = game_state.room_owner.clone();
 
-    let users = game_state.user_data.keys().cloned().collect::<Vec<_>>();
-    let usernames = {
-        let user_states = app_data.users.read().await;
-        users
-            .iter()
-            .flat_map(|user| match user_states.get(user) {
-                Some(u) => Some(u.claim.data.login.clone()),
-                None => None,
-            })
-            .collect::<Vec<_>>()
+        let users = game_state.user_data.keys().cloned().collect::<Vec<_>>();
+        let usernames = {
+            let user_states = app_data.users.read().await;
+            users
+                .iter()
+                .flat_map(|user| match user_states.get(user) {
+                    Some(u) => Some(u.claim.data.login.clone()),
+                    None => None,
+                })
+                .collect::<Vec<_>>()
+        };
+
+        let game_duration = game_state.duration.as_secs();
+        (owner, users, usernames, game_duration)
     };
 
     for user in &users {
+        tracing::debug!("Informing {user:#?} the join");
         reply_to_user(
             &mut (*app_data.users.write().await),
             user.clone(),
@@ -275,13 +363,18 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
                 serde_json::to_string(&Response::RoomJoin(RoomJoinData {
                     room_id: data.room_id.clone(),
                     is_owner: *user == owner,
+                    game_duration,
                     player_list: usernames.clone(),
                 }))
                 .unwrap(),
             ),
         )
         .await;
+
+        tracing::debug!("Informed {user:#?}.");
     }
+
+    tracing::debug!("Done informing everyone");
 }
 
 fn choose_random_emote(emote: &Vec<FinalEmote>, seed: u64, emote_index: u32) -> FinalEmote {

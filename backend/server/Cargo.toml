@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 cached = { version = "0.55.1", features = ["async"] }
+console-subscriber = "0.4.1"
 env_logger = "0.11.8"
 futures-util = "0.3.31"
 graphql_client = { version = "0.14.0", features = ["reqwest"] }

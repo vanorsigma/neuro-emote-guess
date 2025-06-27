@@ -60,6 +60,7 @@ export type RoomJoinResponse = {
   command: 'room_join';
   room_id: string;
   is_owner: boolean;
+  game_duration: number;
   player_list: string[];
 };
 
