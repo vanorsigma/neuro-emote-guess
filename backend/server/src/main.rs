@@ -203,7 +203,6 @@ async fn handle_upgrade(app_data: AppDataSync, mut ws: WebSocket) {
 
 #[tokio::main]
 async fn main() {
-    console_subscriber::init();
     env_logger::init();
 
     let key = {
