@@ -5,8 +5,8 @@
 
   // TODO: do not hardcode but who am i kidding this is going to be in production i guarantee it
   const CLIENT_ID = 'ee92s9l7bxh4fslbqh3svb3ul7hmfi';
-  const REDIRECT_URI = 'http://localhost:5173/login';
-  const TOKEN_POST_URI = 'http://127.0.0.1:3030/token';
+  const REDIRECT_URI = import.meta.env.VITE_LOGIN_REDIRECT_URI;
+  const TOKEN_POST_URI = import.meta.env.VITE_TOKEN_POST_URI;
 
   function buildURL(client_id: string, redirect_uri: string, state: string) {
     return `https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=${client_id}&redirect_uri=${redirect_uri}&scope=&state=${state}`;

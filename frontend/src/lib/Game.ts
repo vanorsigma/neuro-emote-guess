@@ -142,7 +142,8 @@ export class Game {
         return;
 
       case 'room_join_failed':
-        window.alert('Cannot join room, room ID invalid');
+        window.alert(`Cannot join room: ${typedresponse.error_msg}`);
+        gameState.room_id = '';
         return;
 
       case 'room_disbanded':

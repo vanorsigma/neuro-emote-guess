@@ -345,6 +345,25 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
             }
         };
 
+        if game_state.timer_handle.is_some() {
+            tracing::warn!("Somebody tried to join after game has started...");
+            reply_to_user(
+                &mut (*app_data.users.write().await),
+                user_id,
+                Message::text(
+                    serde_json::to_string(&Response::Error(
+                        backend::models::responses::ErrorData {
+                            error_type: backend::models::responses::ErrorDataType::RoomJoinFailed,
+                            error_msg: "Room already started".to_string(),
+                        },
+                    ))
+                    .unwrap(),
+                ),
+            )
+            .await;
+            return;
+        }
+
         tracing::debug!("Causing {user_id:#?} to join room {:#?}", data.room_id);
         game_state
             .user_data
@@ -500,6 +519,8 @@ async fn handle_game_end(mut app_data: AppDataSync, room_id: RoomID) {
             Some(gs) => gs,
             None => return,
         };
+
+        game_state.timer_handle = None;
 
         // TODO: in theory, we should handle score calculation here as well
         // let user_data_map = app_data.users.write().await;
