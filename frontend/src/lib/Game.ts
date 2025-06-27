@@ -166,7 +166,7 @@ export class Game {
     const typedresponse = response as RoomJoinResponse;
     gameState.started = GameStateIdentifier.ROOM_CONFIG;
     gameState.room_id = typedresponse.room_id;
-    gameState.scores = typedresponse.player_list.map(user_id => [user_id, 0]);
+    gameState.scores = Object.entries(typedresponse.scores) as unknown as [string, number][];
     gameState.expectedDuration = typedresponse.game_duration;
     gameState.is_owner = typedresponse.is_owner;
   }

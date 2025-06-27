@@ -6,8 +6,6 @@
   import RoomScreen from './RoomScreen.svelte';
 
   let game = new Game('ws://127.0.0.1:3030/ws', getSessionTokenOrRedirect());
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let usernames = $derived(gameState.scores.map(([userid, _]) => userid));
 
   function getSessionTokenOrRedirect() {
     const sessionToken = document.cookie
@@ -67,7 +65,7 @@
       {onGenerateRoom}
       {startGame}
       bind:expectedDuration={gameState.expectedDuration}
-      {usernames}
+      scores={gameState.scores}
       room_owner={gameState.is_owner}
       disabled={!gameState.connected}
       joinedRoom={gameState.started === GameStateIdentifier.ROOM_CONFIG}

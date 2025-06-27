@@ -61,7 +61,7 @@ export type RoomJoinResponse = {
   room_id: string;
   is_owner: boolean;
   game_duration: number;
-  player_list: string[];
+  scores: { [uid: string]: number }[];
 };
 
 export type EmoteDataResponse = {

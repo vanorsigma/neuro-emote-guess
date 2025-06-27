@@ -99,6 +99,13 @@ async fn leave_all_rooms(app_data: &AppDataSync, user_id: User) {
     let mut rooms_to_leave = vec![];
     {
         let game_states = app_data.game_states.read().await;
+        let users_to_login = {
+            let user_datas = app_data.users.read().await;
+            user_datas
+                .iter()
+                .map(|(user, data)| (user.clone(), data.claim.data.login.clone()))
+                .collect::<HashMap<_, _>>()
+        };
         for game_state in game_states.values() {
             if is_user_owner_of_room(game_state, user_id.clone()).await {
                 for user in game_state.user_data.keys() {
@@ -133,11 +140,16 @@ async fn leave_all_rooms(app_data: &AppDataSync, user_id: User) {
                                     &game_state.room_id.clone(),
                                 )
                                 .await,
-                                player_list: game_state
+                                scores: game_state
                                     .user_data
                                     .keys()
                                     .cloned()
-                                    .map(|p| p.0)
+                                    .flat_map(|p| {
+                                        Some((
+                                            users_to_login.get(&p)?.to_string(),
+                                            game_state.user_data.get(&p)?.score,
+                                        ))
+                                    })
                                     .collect(),
                             }))
                             .unwrap(),
@@ -228,7 +240,7 @@ pub async fn handle_create_room(app_data: AppDataSync, user_id: User) {
                 room_id: room_id.clone(),
                 is_owner: true,
                 game_duration: get_duration_for_room(&app_data, &room_id.clone()).await,
-                player_list: vec![user_login],
+                scores: HashMap::from([(user_login, 0.0)]),
             }))
             .unwrap(),
         ),
@@ -258,23 +270,27 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
         game_state.duration = tokio::time::Duration::from_secs(data.game_duration);
         (
             game_state.room_owner.clone(),
-            game_state.user_data.keys().cloned().collect::<Vec<_>>(),
+            game_state
+                .user_data
+                .iter()
+                .map(|(user, data)| (user.clone(), data.score.clone()))
+                .collect::<Vec<_>>(),
         )
     };
 
-    let usernames = {
+    let scores = {
         let users = app_data.users.read().await;
         player_list
             .into_iter()
-            .flat_map(|user| users.get(&user))
-            .map(|user_data| user_data.claim.data.login.clone())
-            .collect::<Vec<_>>()
+            .flat_map(|(user, score)| Some((users.get(&user)?, score)))
+            .map(|(user_data, score): (&UserData, f32)| (user_data.claim.data.login.clone(), score))
+            .collect::<HashMap<_, _>>()
     };
 
     let room_id = data.room_id.clone();
     send_to_room(app_data.clone(), &room_id.clone(), |user| {
         let owner = owner.clone();
-        let player_list = usernames.clone();
+        let scores = scores.clone();
         let room_id = room_id.clone();
         let app_data = app_data.clone();
 
@@ -284,7 +300,7 @@ pub async fn handle_edit_room(app_data: AppDataSync, user_id: User, data: EditRo
                     room_id: room_id.clone(),
                     is_owner: user == owner,
                     game_duration: get_duration_for_room(&app_data, &room_id).await,
-                    player_list,
+                    scores,
                 }))
                 .unwrap(),
             )
@@ -317,7 +333,7 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
     tracing::debug!("Causing {user_id:#?} to leave all rooms");
     leave_all_rooms(&app_data, user_id.clone()).await;
 
-    let (owner, users, usernames, game_duration) = {
+    let (owner, users, scores, game_duration) = {
         let mut game_states = app_data.game_states.write().await;
         let game_state = match game_states.get_mut(&data.room_id) {
             Some(gs) => gs,
@@ -338,23 +354,27 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
         tracing::debug!("Room now has {} players", game_state.user_data.len());
         let owner = game_state.room_owner.clone();
 
-        let users = game_state.user_data.keys().cloned().collect::<Vec<_>>();
-        let usernames = {
+        let users = game_state
+            .user_data
+            .iter()
+            .map(|(user, user_data)| (user.clone(), user_data.score))
+            .collect::<HashMap<_, _>>();
+        let scores = {
             let user_states = app_data.users.read().await;
             users
                 .iter()
-                .flat_map(|user| match user_states.get(user) {
-                    Some(u) => Some(u.claim.data.login.clone()),
+                .flat_map(|(user, score)| match user_states.get(user) {
+                    Some(u) => Some((u.claim.data.login.clone(), score.clone())),
                     None => None,
                 })
-                .collect::<Vec<_>>()
+                .collect::<HashMap<_, _>>()
         };
 
         let game_duration = game_state.duration.as_secs();
-        (owner, users, usernames, game_duration)
+        (owner, users, scores, game_duration)
     };
 
-    for user in &users {
+    for (user, _) in &users {
         tracing::debug!("Informing {user:#?} the join");
         reply_to_user(
             &mut (*app_data.users.write().await),
@@ -364,7 +384,7 @@ pub async fn handle_join_room(app_data: AppDataSync, user_id: User, data: JoinRo
                     room_id: data.room_id.clone(),
                     is_owner: *user == owner,
                     game_duration,
-                    player_list: usernames.clone(),
+                    scores: scores.clone(),
                 }))
                 .unwrap(),
             ),
