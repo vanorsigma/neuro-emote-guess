@@ -86,6 +86,7 @@
     score={gameState.score}
     {skip}
     scores={gameState.scores}
+    duration={gameState.expectedDuration}
   ></GameScreen>
 {/if}
 

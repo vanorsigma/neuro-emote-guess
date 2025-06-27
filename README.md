@@ -37,11 +37,12 @@ Todo:
 - [ ] Make URLS be env variables
 - [ ] Address TODOs in the code
 - [ ] Use a mutable hashmap so that other users are not affected by a single user submitting a guess
-- [ ] If the emote name is too long, need to flex the boxes
-- [ ] Editing room needs to reflect for other players
+- [X] If the emote name is too long, need to flex the boxes
+- [X] Editing room needs to reflect for other players
 - [ ] Need security against copy & paste
-- [ ] Need timer in frontend
+- [X] Need timer in frontend
 - [ ] Player list does not refresh immediately on restart
 - [ ] Restarting is broken
-- [ ] Changing duration of the game is broken
+- [X] Changing duration of the game is broken
 - [ ] Mock usernames in dev enviornment
+- [ ] When user disconnects remove from player list

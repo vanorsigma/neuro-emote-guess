@@ -2,6 +2,7 @@
   import { type Emote } from '$lib/Emote';
   import Box from '$lib/Box.svelte';
   import { BoxState } from '$lib/BoxState';
+  import Timer from '$lib/Timer.svelte';
 
   interface Props {
     room_id: string | undefined;
@@ -13,6 +14,7 @@
     score: number;
     scores: [string, number][];
     skip: () => void;
+    duration: number;
   }
 
   let {
@@ -24,7 +26,8 @@
     onTyping = () => {},
     score,
     scores,
-    skip
+    skip,
+    duration
   }: Props = $props();
   let emote_guess_field: HTMLInputElement;
   let skip_latch = false;
@@ -98,6 +101,10 @@
       <li>{player}: {score.toFixed(1)}</li>
     {/each}
   </ul>
+</div>
+
+<div>
+  <Timer start_seconds={duration} />
 </div>
 
 <svelte:window
