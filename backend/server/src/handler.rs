@@ -25,8 +25,8 @@ use uuid::{Uuid, uuid};
 use warp::filters::ws::{Message, WebSocket, Ws};
 
 // TODO: temporary constant
-const EMOTE_SET_ID: &str = "01J452JCVG0000352W25T9VEND";
-const DEFAULT_DURATION_SEC: u64 = 5;
+const EMOTE_SET_ID: &str = "01GN2QZDS0000BKRM8E4JJD3NV";
+const DEFAULT_DURATION_SEC: u64 = 100;
 const CORRECT_SCORE: f32 = 1.0;
 const INCORRECT_SCORE: f32 = -0.2;
 const SKIP_SCORE: f32 = -0.1;
@@ -508,33 +508,28 @@ async fn handle_game_end(mut app_data: AppDataSync, room_id: RoomID) {
         (room_owner, users)
     };
 
-    tracing::debug!("Lock released");
+    // tracing::debug!("Lock released");
 
-    {
-        let mut game_states = app_data.game_states.write().await;
-        game_states.remove(&room_id);
-    }
+    // {
+    //     let mut game_states = app_data.game_states.write().await;
+    //     game_states.remove(&room_id);
+    // }
 
-    tracing::debug!("Lock released again");
+    // tracing::debug!("Lock released again");
 
-    let room_id = match create_room(&app_data, room_owner).await {
-        Some(r) => r,
-        None => {
-            tracing::error!("cannot create room while game over");
-            return;
-        }
-    };
+    // let room_id = match create_room(&app_data, room_owner).await {
+    //     Some(r) => r,
+    //     None => {
+    //         tracing::error!("cannot create room while game over");
+    //         return;
+    //     }
+    // };
 
     for user in users {
         reply_to_user(
             &mut (*app_data.users.write().await),
             user.clone(),
-            Message::text(
-                serde_json::to_string(&Response::GameOver(GameOverData {
-                    new_room_id: room_id.clone(),
-                }))
-                .unwrap(),
-            ),
+            Message::text(serde_json::to_string(&Response::GameOver(GameOverData {})).unwrap()),
         )
         .await
     }
@@ -548,23 +543,35 @@ pub async fn handle_start_game(mut app_data: AppDataSync, user_id: User, data: S
     }
 
     let is_room_owner = {
-        let mut game_states = app_data.game_states.write().await;
-        let game_state = match game_states.get_mut(&data.room_id) {
+        let game_states = app_data.game_states.read().await;
+        let game_state = match game_states.get(&data.room_id) {
             Some(gs) => gs,
             None => return,
         };
 
-        let duration = game_state.duration;
-        let cloned_appdata = app_data.clone();
-        let cloned_roomid = data.room_id.clone();
-        game_state.timer_handle = Some(tokio::task::spawn(async move {
-            tokio::time::sleep(duration).await;
-            handle_game_end(cloned_appdata, cloned_roomid).await;
-        }));
         game_state.room_owner == user_id
     };
 
     if is_room_owner {
+        {
+            // update room seed
+            let mut game_states = app_data.game_states.write().await;
+            let game_state = match game_states.get_mut(&data.room_id) {
+                Some(gs) => gs,
+                None => return,
+            };
+            let duration = game_state.duration;
+            let cloned_appdata = app_data.clone();
+            let cloned_roomid = data.room_id.clone();
+            let seed: u64 = rand::random();
+
+            game_state.timer_handle = Some(tokio::task::spawn(async move {
+                tokio::time::sleep(duration).await;
+                handle_game_end(cloned_appdata, cloned_roomid).await;
+            }));
+            game_state.seed = seed;
+        }
+
         send_random_emote_to_room(&mut app_data, data.room_id).await
     }
 }

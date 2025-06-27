@@ -3,7 +3,6 @@ import { gameState, GameStateIdentifier } from '$lib/GameState.svelte';
 import type {
   EmoteDataResponse,
   ErrorResponse,
-  GameOverResponse,
   GameUpdateResponse,
   GuessDataResponse,
   NewUserResponse,
@@ -137,23 +136,23 @@ export class Game {
   onError(response: Response) {
     const typedresponse = response as ErrorResponse;
     switch (typedresponse.error_type) {
-    case 'auth_failed':
-      window.history.pushState({}, '', '/login');
-      window.location.href = '/login';
-      return;
+      case 'auth_failed':
+        window.history.pushState({}, '', '/login');
+        window.location.href = '/login';
+        return;
 
-    case 'room_join_failed':
-      window.alert('Cannot join room, room ID invalid');
-      return;
+      case 'room_join_failed':
+        window.alert('Cannot join room, room ID invalid');
+        return;
 
-    case 'room_disbanded':
-      window.alert('Room disbanded');
-      gameState.started = GameStateIdentifier.ROOM_INIT;
-      gameState.room_id = '';
-      return;
+      case 'room_disbanded':
+        window.alert('Room disbanded');
+        gameState.started = GameStateIdentifier.ROOM_INIT;
+        gameState.room_id = '';
+        return;
 
-    default:
-      console.error('unknown server error', typedresponse.error_type);
+      default:
+        console.error('unknown server error', typedresponse.error_type);
     }
   }
 
@@ -166,6 +165,7 @@ export class Game {
     const typedresponse = response as RoomJoinResponse;
     gameState.started = GameStateIdentifier.ROOM_CONFIG;
     gameState.room_id = typedresponse.room_id;
+    gameState.score = 0;
     gameState.scores = Object.entries(typedresponse.scores) as unknown as [string, number][];
     gameState.expectedDuration = typedresponse.game_duration;
     gameState.is_owner = typedresponse.is_owner;
@@ -175,18 +175,16 @@ export class Game {
     const typedresponse = response as EmoteDataResponse;
     if (gameState.started === GameStateIdentifier.ROOM_CONFIG) {
       gameState.started = GameStateIdentifier.STARTED;
-      gameState.score = 0;
     }
 
     gameState.currentEmote = typedresponse.emote;
     gameState.guess = '';
   }
 
-  onGameOver(response: Response) {
-    const typedresponse = response as GameOverResponse;
-    gameState.started = GameStateIdentifier.GAME_OVER;
-    gameState.room_id = typedresponse.new_room_id;
-    console.log('game over, new id', typedresponse.new_room_id);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onGameOver(_response: Response) {
+    // const typedresponse = response as GameOverResponse;
+    gameState.started = GameStateIdentifier.ROOM_CONFIG;
   }
 
   onGameUpdate(response: Response) {

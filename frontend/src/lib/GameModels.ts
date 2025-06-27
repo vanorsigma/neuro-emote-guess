@@ -84,7 +84,7 @@ export type GameStartedResponse = {
 
 export type GameOverResponse = {
   command: 'game_over';
-  new_room_id: string;
+  // new_room_id: string;
   // emote: {
   //   name: string,
   //   id: string,
