@@ -5,7 +5,7 @@
   import GameOver from './GameOver.svelte';
   import RoomScreen from './RoomScreen.svelte';
 
-  let game = new Game('ws://127.0.0.1:3030/ws', getSessionTokenOrRedirect());
+  let game = new Game(import.meta.env.VITE_HOST, getSessionTokenOrRedirect());
 
   function getSessionTokenOrRedirect() {
     const sessionToken = document.cookie
